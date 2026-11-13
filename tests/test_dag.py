@@ -1,0 +1,28 @@
+"""DAG integrity: the Airflow DAG parses and wires the pipeline steps in order."""
+
+import importlib.util
+
+import pytest
+
+from src.config import PROJECT_ROOT
+
+pytest.importorskip("airflow")
+
+DAG_FILE = PROJECT_ROOT / "pipelines" / "dags" / "pii_redaction_pipeline.py"
+
+
+def test_dag_structure():
+    spec = importlib.util.spec_from_file_location("pii_dag", DAG_FILE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    dags = [v for v in vars(module).values() if type(v).__name__ == "DAG"]
+    if not dags:  # @dag-decorated function registered via call; find it through the decorator
+        dag = module.pii_redaction_pipeline()
+    else:
+        dag = dags[0]
+    expected = ["ingest", "validate_raw", "preprocess", "validate_processed", "evaluate_baseline"]
+    assert sorted(dag.task_ids) == sorted(expected)
+    for upstream, downstream in zip(expected, expected[1:], strict=False):
+        assert downstream in dag.get_task(upstream).downstream_task_ids
+    assert dag.get_task("ingest").retries == 3
+    assert dag.get_task("validate_raw").retries == 0
