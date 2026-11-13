@@ -1,0 +1,622 @@
+{
+  "stage": "raw",
+  "passed": true,
+  "n_errors": 0,
+  "n_warnings": 1,
+  "checks": [
+    {
+      "name": "schema.required_columns",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "uid",
+        "domain",
+        "document_type",
+        "document_description",
+        "document_format",
+        "locale",
+        "text",
+        "spans",
+        "text_tagged"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "schema.string_dtypes",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": null,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_nulls",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_blank_strings",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.locale_values",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "intl",
+        "us"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.document_format_values",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "structured",
+        "unstructured"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "stat.text_length_in_range",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": [
+        20,
+        20000
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.records_per_uid",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 2,
+      "threshold": 2,
+      "detail": ""
+    },
+    {
+      "name": "schema.spans_parseable",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "schema.span_fields",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.known_labels",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": "55 labels",
+      "detail": ""
+    },
+    {
+      "name": "domain.span_in_bounds",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.span_text_matches_offsets",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": "span text must equal text[start:end] up to letter case"
+    },
+    {
+      "name": "stat.case_mismatch_span_rate",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0.008202,
+      "threshold": 0.02,
+      "detail": "fixed in preprocessing (offsets win)"
+    },
+    {
+      "name": "stat.overlap_doc_rate",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0.00014,
+      "threshold": 0.002,
+      "detail": "dropped in preprocessing"
+    },
+    {
+      "name": "stat.empty_doc_rate",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 6e-05,
+      "threshold": 0.001,
+      "detail": ""
+    },
+    {
+      "name": "stat.duplicate_text_rate",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 1e-05,
+      "threshold": 0.001,
+      "detail": "dropped in preprocessing"
+    },
+    {
+      "name": "schema.required_columns",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "uid",
+        "domain",
+        "document_type",
+        "document_description",
+        "document_format",
+        "locale",
+        "text",
+        "spans",
+        "text_tagged"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "schema.string_dtypes",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": null,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_nulls",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_blank_strings",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.locale_values",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "intl",
+        "us"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.document_format_values",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "structured",
+        "unstructured"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "stat.text_length_in_range",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": [
+        20,
+        20000
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.records_per_uid",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 2,
+      "threshold": 2,
+      "detail": ""
+    },
+    {
+      "name": "schema.spans_parseable",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "schema.span_fields",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.known_labels",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": "55 labels",
+      "detail": ""
+    },
+    {
+      "name": "domain.span_in_bounds",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.span_text_matches_offsets",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": "span text must equal text[start:end] up to letter case"
+    },
+    {
+      "name": "stat.case_mismatch_span_rate",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0.007285,
+      "threshold": 0.02,
+      "detail": "fixed in preprocessing (offsets win)"
+    },
+    {
+      "name": "stat.overlap_doc_rate",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0.0001,
+      "threshold": 0.002,
+      "detail": "dropped in preprocessing"
+    },
+    {
+      "name": "stat.empty_doc_rate",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 1e-05,
+      "threshold": 0.001,
+      "detail": ""
+    },
+    {
+      "name": "stat.duplicate_text_rate",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0.0,
+      "threshold": 0.001,
+      "detail": "dropped in preprocessing"
+    },
+    {
+      "name": "stat.min_spans_per_label",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": 1000,
+      "detail": ""
+    },
+    {
+      "name": "leakage.uid_overlap",
+      "split": "train|test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "leakage.text_overlap",
+      "split": "train|test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "drift.label_distribution_train_vs_test",
+      "split": "train|test",
+      "passed": false,
+      "severity": "warning",
+      "observed": 0.1217,
+      "threshold": 0.1,
+      "detail": "Jensen-Shannon distance of label shares"
+    }
+  ],
+  "stats": {
+    "train": {
+      "docs": 100000,
+      "unique_uids": 50000,
+      "spans": 825456,
+      "spans_per_doc": 8.25,
+      "locale": {
+        "us": 50000,
+        "intl": 50000
+      },
+      "document_format": {
+        "unstructured": 51364,
+        "structured": 48636
+      },
+      "domains": 30,
+      "document_types": 1451,
+      "text_chars": {
+        "p0": 32,
+        "p5": 256,
+        "p50": 774,
+        "p95": 2536,
+        "p100": 13260,
+        "mean": 1003.4
+      },
+      "label_counts": {
+        "company_name": 85441,
+        "date": 77130,
+        "first_name": 59391,
+        "email": 49934,
+        "url": 44803,
+        "last_name": 43962,
+        "occupation": 31105,
+        "country": 27781,
+        "phone_number": 25012,
+        "time": 21054,
+        "city": 19313,
+        "state": 19067,
+        "customer_id": 17211,
+        "street_address": 16830,
+        "date_time": 14368,
+        "user_name": 12872,
+        "date_of_birth": 12710,
+        "employee_id": 12067,
+        "biometric_identifier": 11188,
+        "education_level": 10633,
+        "account_number": 9998,
+        "vehicle_identifier": 9339,
+        "credit_debit_card": 9049,
+        "ipv4": 8954,
+        "coordinate": 8438,
+        "password": 8285,
+        "postcode": 8030,
+        "certificate_license_number": 7920,
+        "employment_status": 7654,
+        "fax_number": 7357,
+        "license_plate": 7134,
+        "race_ethnicity": 7130,
+        "medical_record_number": 7095,
+        "bank_routing_number": 6759,
+        "pin": 6548,
+        "language": 6531,
+        "county": 6462,
+        "health_plan_beneficiary_number": 6345,
+        "mac_address": 6096,
+        "api_key": 6086,
+        "swift_bic": 5821,
+        "http_cookie": 5786,
+        "device_identifier": 5255,
+        "ssn": 4937,
+        "ipv6": 4794,
+        "religious_belief": 4740,
+        "blood_type": 4517,
+        "gender": 4304,
+        "age": 4162,
+        "political_view": 4013,
+        "cvv": 3554,
+        "national_id": 3171,
+        "tax_id": 2563,
+        "unique_id": 2387,
+        "sexuality": 2370
+      },
+      "span_quality": {
+        "spans": 825456,
+        "case_mismatch_spans": 6770,
+        "non_string_span_text": 5824,
+        "empty_docs": 6,
+        "overlap_docs": 14,
+        "edge_whitespace_spans": 2
+      },
+      "examples": {
+        "case_mismatch": [
+          {
+            "in_text": "Spanish",
+            "span_text": "spanish"
+          },
+          {
+            "in_text": "Puerto Rican",
+            "span_text": "puerto rican"
+          },
+          {
+            "in_text": "environmentalist",
+            "span_text": "Environmentalist"
+          }
+        ],
+        "overlap": [
+          {
+            "uid": "c756917b870e42c0954e2d99e203c417"
+          },
+          {
+            "uid": "7ca161aaee79400c975530a712727fb8"
+          },
+          {
+            "uid": "b320e1b3cdfa472daf2ccfb68b409d52"
+          }
+        ]
+      }
+    },
+    "test": {
+      "docs": 100000,
+      "unique_uids": 50000,
+      "spans": 850340,
+      "spans_per_doc": 8.5,
+      "locale": {
+        "us": 50000,
+        "intl": 50000
+      },
+      "document_format": {
+        "unstructured": 50578,
+        "structured": 49422
+      },
+      "domains": 29,
+      "document_types": 1466,
+      "text_chars": {
+        "p0": 45,
+        "p5": 250,
+        "p50": 745,
+        "p95": 2431,
+        "p100": 14608,
+        "mean": 958.5
+      },
+      "label_counts": {
+        "first_name": 84043,
+        "date": 73867,
+        "last_name": 59596,
+        "company_name": 54837,
+        "email": 53930,
+        "url": 37847,
+        "occupation": 36888,
+        "time": 24506,
+        "phone_number": 23930,
+        "country": 23475,
+        "customer_id": 20502,
+        "city": 18347,
+        "state": 18318,
+        "date_of_birth": 18079,
+        "street_address": 16879,
+        "account_number": 16693,
+        "user_name": 15800,
+        "date_time": 13221,
+        "credit_debit_card": 12867,
+        "biometric_identifier": 11379,
+        "medical_record_number": 11098,
+        "employment_status": 11018,
+        "health_plan_beneficiary_number": 10558,
+        "education_level": 9378,
+        "race_ethnicity": 9248,
+        "employee_id": 8878,
+        "language": 8651,
+        "county": 8465,
+        "bank_routing_number": 8354,
+        "coordinate": 7659,
+        "gender": 7645,
+        "age": 7167,
+        "password": 6985,
+        "pin": 6456,
+        "fax_number": 6423,
+        "political_view": 6402,
+        "postcode": 6279,
+        "religious_belief": 6257,
+        "ipv4": 6078,
+        "ssn": 6062,
+        "swift_bic": 5559,
+        "blood_type": 5539,
+        "http_cookie": 4892,
+        "cvv": 4843,
+        "api_key": 4667,
+        "vehicle_identifier": 4561,
+        "mac_address": 4250,
+        "license_plate": 4078,
+        "sexuality": 3312,
+        "ipv6": 3139,
+        "certificate_license_number": 3002,
+        "national_id": 2847,
+        "device_identifier": 2507,
+        "unique_id": 1777,
+        "tax_id": 1302
+      },
+      "span_quality": {
+        "spans": 850340,
+        "case_mismatch_spans": 6195,
+        "non_string_span_text": 6747,
+        "overlap_docs": 10,
+        "edge_whitespace_spans": 4,
+        "empty_docs": 1
+      },
+      "examples": {
+        "case_mismatch": [
+          {
+            "in_text": "Black",
+            "span_text": "black"
+          },
+          {
+            "in_text": "Mexican",
+            "span_text": "mexican"
+          },
+          {
+            "in_text": "atheist",
+            "span_text": "Atheist"
+          }
+        ],
+        "overlap": [
+          {
+            "uid": "75fbc8c1962e4798ab75d20138a90cb3"
+          },
+          {
+            "uid": "605b5ee19f41454392f0be9bbb993321"
+          },
+          {
+            "uid": "8f4446f81f464f3690fc0d1fa0ac7973"
+          }
+        ]
+      }
+    }
+  }
+}
