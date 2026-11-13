@@ -1,0 +1,43 @@
+# Default pipeline configuration.
+# Relative paths are resolved against the repository root.
+seed: 42
+
+data:
+  hf_repo: nvidia/Nemotron-PII
+  # Pin the dataset to an exact Hugging Face commit so every run sees the same bytes.
+  hf_revision: b70ffaf5ff39e079776134c5bf4381f00a9fd1ed
+  splits: [train, test]
+  raw_dir: data/raw
+  processed_dir: data/processed
+  # Share of train *uids* (persona groups) held out for validation.
+  val_fraction: 0.1
+
+validation:
+  report_dir: reports/validation
+  # Raw-data quality thresholds. Exceeding any of these fails the pipeline.
+  min_text_chars: 20
+  max_text_chars: 20000
+  max_case_mismatch_span_rate: 0.02   # span text differs from text[start:end] only by case
+  max_overlap_doc_rate: 0.002         # documents with overlapping spans
+  max_empty_doc_rate: 0.001           # documents with no PII spans
+  max_duplicate_text_rate: 0.001
+  min_spans_per_label: 1000           # every label must have enough training examples
+  max_records_per_uid: 2              # one US + one intl variant per persona
+  # Train-vs-test label distribution shift (Jensen-Shannon distance, base 2).
+  # Reported as a warning: the official test split is known to be shifted.
+  warn_label_js_distance: 0.1
+
+evaluation:
+  report_dir: reports/baseline
+  # A gold entity counts as redacted when at least this share of its characters is covered
+  # by predicted spans (of any type). 1.0 = fully redacted.
+  min_coverage: 1.0
+  slice_columns: [locale, document_format, domain]
+
+tracking:
+  tracking_uri: sqlite:///mlflow.db
+  artifact_location: mlartifacts   # used when the experiment is first created
+  experiment_name: pii-redaction
+
+artifacts:
+  dir: artifacts

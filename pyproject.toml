@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pii-redaction"
+version = "0.1.0"
+description = "Detect and redact PII in LLM prompts on the user's device before they reach the provider."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+authors = [
+  { name = "Andrei Sburlan" },
+  { name = "Jean-Gabriel de Montigny" },
+]
+dependencies = [
+  "tensorflow>=2.16",
+  "pyyaml>=6.0",
+  "pandas>=3.1.1",
+  "pyarrow>=26.0.1",
+  "huggingface-hub>=2.4.0",
+  "mlflow>=3.18.0",
+]
+
+[dependency-groups]
+airflow = [
+  "apache-airflow>=3.1",
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.5",
+]
+
+[tool.uv]
+# `uv sync` installs everything needed to develop and orchestrate locally.
+default-groups = ["dev", "airflow"]
+
+[tool.setuptools.packages.find]
+include = ["src*", "pipelines*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

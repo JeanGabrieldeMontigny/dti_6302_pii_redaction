@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Data and generated artifacts (never commit; reproduce via the pipeline)
+/data/
+/artifacts/
+/mlruns/
+/logs/
+*.keras
+*.h5
+*.tflite
+*.onnx
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local orchestration / tracking state
+.airflow/
+mlflow.db
+mlartifacts/
