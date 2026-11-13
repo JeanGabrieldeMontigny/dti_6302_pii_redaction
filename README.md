@@ -155,24 +155,7 @@ Detection recall counts a gold entity as redacted when **all** of its characters
 predicted spans of any type (`evaluation.min_coverage`). Precision is measured on characters.
 Metrics are also sliced by `locale`, `document_format` and `domain`.
 
-### Targets (DRAFT – pending team sign-off)
-
-Proposed now that the regex baseline is measured (validation split):
-
-| Metric | Target | Regex baseline |
-| --- | --- | ---: |
-| Detection recall, overall | ≥ 0.90 | 0.329 |
-| Detection recall, high-risk identifiers¹ | ≥ 0.95 each | see per-label table |
-| Detection recall, any label | ≥ 0.70 each | 0.000 (many) |
-| Character precision | ≥ 0.85 | 0.993 |
-| Type macro-F1 | ≥ 0.80 | 0.378 |
-| Latency p95, browser | ≤ 100 ms per prompt up to 2,500 chars² | n/a |
-
-¹ `ssn`, `credit_debit_card`, `cvv`, `password`, `api_key`, `account_number`,
-`bank_routing_number`, `national_id`, `tax_id`, `medical_record_number`,
-`health_plan_beneficiary_number`, `email`, `phone_number`.
-² Reference device: Chrome on a 4-core laptop with 4× CPU throttling in DevTools; 2,500 chars is
-roughly the p95 document length.
+Numeric targets are still to be agreed by the team, informed by the baseline results below.
 
 ## Baselines
 
