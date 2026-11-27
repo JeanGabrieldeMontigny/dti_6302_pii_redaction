@@ -7,6 +7,8 @@ Project report, architecture diagram, and evidence.
   JSON for machines, Markdown for review. Regenerated on every run.
 - `baseline/` – regex baseline evaluation on validation (`make baseline`): Markdown report,
   per-label CSV, and a JSON summary with the MLflow run id, `data_version` and git commit.
+- `experiments/` – Keras tagger evaluations on validation (`make train` / `make experiments`), one
+  set of files per experiment, same format as `baseline/`.
 - `figures/` – figures for the report.
 
 MLflow (`make mlflow`) holds the full run history; these files are the reviewable snapshot.

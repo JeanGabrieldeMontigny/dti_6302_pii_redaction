@@ -1,0 +1,17 @@
+{
+  "n_docs": 9915,
+  "n_entities": 81770,
+  "detection_recall": 0.5445517916106152,
+  "char_precision": 0.9447493755078701,
+  "char_recall": 0.8022384006951278,
+  "type_macro_f1": 0.5838870769389273,
+  "type_accuracy": 0.78150826446281,
+  "ms_per_doc": 0.5298144730206577,
+  "run_id": "faeb83d7af684d239cf069941db7e2e2",
+  "data_version": "658e29cded93",
+  "git_commit": "bc53870",
+  "git_dirty": "false",
+  "model_family": "keras",
+  "eval_split": "validation",
+  "model_version": "e1_small_cnn_subset-faeb83d7"
+}
