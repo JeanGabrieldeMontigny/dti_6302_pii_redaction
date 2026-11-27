@@ -154,7 +154,11 @@ def _check_frame_basics(
     report.add("domain.locale_values", name, not bad_locale, bad_locale or "ok", sorted(LOCALES))
     bad_fmt = sorted(set(df["document_format"]) - DOCUMENT_FORMATS)
     report.add(
-        "domain.document_format_values", name, not bad_fmt, bad_fmt or "ok", sorted(DOCUMENT_FORMATS)
+        "domain.document_format_values",
+        name,
+        not bad_fmt,
+        bad_fmt or "ok",
+        sorted(DOCUMENT_FORMATS),
     )
 
     lengths = df["text"].str.len()
@@ -164,7 +168,10 @@ def _check_frame_basics(
 
     per_uid = int(df.groupby("uid").size().max())
     report.add(
-        "domain.records_per_uid", name, per_uid <= cfg["max_records_per_uid"], per_uid,
+        "domain.records_per_uid",
+        name,
+        per_uid <= cfg["max_records_per_uid"],
+        per_uid,
         cfg["max_records_per_uid"],
     )
     return True
@@ -245,34 +252,66 @@ def validate_raw(splits: dict[str, pd.DataFrame], cfg: dict) -> ValidationReport
         c, n_docs, n_spans = scan["counts"], len(df), scan["counts"]["spans"]
         label_counts[name] = scan["labels"]
 
-        report.add("schema.spans_parseable", name, c["unparseable_docs"] == 0, c["unparseable_docs"], 0)
+        report.add(
+            "schema.spans_parseable", name, c["unparseable_docs"] == 0, c["unparseable_docs"], 0
+        )
         report.add("schema.span_fields", name, c["malformed_spans"] == 0, c["malformed_spans"], 0)
         report.add(
-            "domain.known_labels", name, not scan["unknown_labels"],
-            dict(scan["unknown_labels"]) or "ok", f"{len(LABELS)} labels",
+            "domain.known_labels",
+            name,
+            not scan["unknown_labels"],
+            dict(scan["unknown_labels"]) or "ok",
+            f"{len(LABELS)} labels",
         )
-        report.add("domain.span_in_bounds", name, c["out_of_bounds_spans"] == 0, c["out_of_bounds_spans"], 0)
         report.add(
-            "domain.span_text_matches_offsets", name, c["text_mismatch_spans"] == 0,
-            c["text_mismatch_spans"], 0,
+            "domain.span_in_bounds",
+            name,
+            c["out_of_bounds_spans"] == 0,
+            c["out_of_bounds_spans"],
+            0,
+        )
+        report.add(
+            "domain.span_text_matches_offsets",
+            name,
+            c["text_mismatch_spans"] == 0,
+            c["text_mismatch_spans"],
+            0,
             detail="span text must equal text[start:end] up to letter case",
         )
         rate = _rate(c["case_mismatch_spans"], n_spans)
         report.add(
-            "stat.case_mismatch_span_rate", name, rate <= cfg["max_case_mismatch_span_rate"], rate,
-            cfg["max_case_mismatch_span_rate"], detail="fixed in preprocessing (offsets win)",
+            "stat.case_mismatch_span_rate",
+            name,
+            rate <= cfg["max_case_mismatch_span_rate"],
+            rate,
+            cfg["max_case_mismatch_span_rate"],
+            detail="fixed in preprocessing (offsets win)",
         )
         rate = _rate(c["overlap_docs"], n_docs)
         report.add(
-            "stat.overlap_doc_rate", name, rate <= cfg["max_overlap_doc_rate"], rate,
-            cfg["max_overlap_doc_rate"], detail="dropped in preprocessing",
+            "stat.overlap_doc_rate",
+            name,
+            rate <= cfg["max_overlap_doc_rate"],
+            rate,
+            cfg["max_overlap_doc_rate"],
+            detail="dropped in preprocessing",
         )
         rate = _rate(c["empty_docs"], n_docs)
-        report.add("stat.empty_doc_rate", name, rate <= cfg["max_empty_doc_rate"], rate, cfg["max_empty_doc_rate"])
+        report.add(
+            "stat.empty_doc_rate",
+            name,
+            rate <= cfg["max_empty_doc_rate"],
+            rate,
+            cfg["max_empty_doc_rate"],
+        )
         rate = _rate(int(df["text"].duplicated().sum()), n_docs)
         report.add(
-            "stat.duplicate_text_rate", name, rate <= cfg["max_duplicate_text_rate"], rate,
-            cfg["max_duplicate_text_rate"], detail="dropped in preprocessing",
+            "stat.duplicate_text_rate",
+            name,
+            rate <= cfg["max_duplicate_text_rate"],
+            rate,
+            cfg["max_duplicate_text_rate"],
+            detail="dropped in preprocessing",
         )
 
         stats = _split_stats(df, n_spans, scan["labels"])
@@ -282,8 +321,14 @@ def validate_raw(splits: dict[str, pd.DataFrame], cfg: dict) -> ValidationReport
 
     if "train" in label_counts:
         train = label_counts["train"]
-        rare = {lbl: train.get(lbl, 0) for lbl in LABELS if train.get(lbl, 0) < cfg["min_spans_per_label"]}
-        report.add("stat.min_spans_per_label", "train", not rare, rare or "ok", cfg["min_spans_per_label"])
+        rare = {
+            lbl: train.get(lbl, 0)
+            for lbl in LABELS
+            if train.get(lbl, 0) < cfg["min_spans_per_label"]
+        }
+        report.add(
+            "stat.min_spans_per_label", "train", not rare, rare or "ok", cfg["min_spans_per_label"]
+        )
     _cross_split_checks(report, splits, label_counts, cfg)
     return report
 
@@ -299,9 +344,13 @@ def _cross_split_checks(report, splits, label_counts, cfg) -> None:
     if "train" in label_counts and "test" in label_counts:
         d = round(js_distance(label_counts["train"], label_counts["test"]), 4)
         report.add(
-            "drift.label_distribution_train_vs_test", "train|test",
-            d <= cfg["warn_label_js_distance"], d, cfg["warn_label_js_distance"],
-            severity="warning", detail="Jensen-Shannon distance of label shares",
+            "drift.label_distribution_train_vs_test",
+            "train|test",
+            d <= cfg["warn_label_js_distance"],
+            d,
+            cfg["warn_label_js_distance"],
+            severity="warning",
+            detail="Jensen-Shannon distance of label shares",
         )
 
 
@@ -339,8 +388,12 @@ def validate_processed(
     from src.data.split import leakage_report
 
     for pair, overlap in leakage_report(splits).items():
-        report.add("leakage.uid_overlap", pair, overlap["uid_overlap"] == 0, overlap["uid_overlap"], 0)
-        report.add("leakage.text_overlap", pair, overlap["text_overlap"] == 0, overlap["text_overlap"], 0)
+        report.add(
+            "leakage.uid_overlap", pair, overlap["uid_overlap"] == 0, overlap["uid_overlap"], 0
+        )
+        report.add(
+            "leakage.text_overlap", pair, overlap["text_overlap"] == 0, overlap["text_overlap"], 0
+        )
 
     if val_fraction is not None and {"train", "validation"} <= set(splits):
         n_tr, n_va = splits["train"]["uid"].nunique(), splits["validation"]["uid"].nunique()
@@ -351,14 +404,22 @@ def validate_processed(
     if "train" in label_counts and "validation" in label_counts:
         d = round(js_distance(label_counts["train"], label_counts["validation"]), 4)
         report.add(
-            "drift.label_distribution_train_vs_validation", "train|validation",
-            d <= cfg["warn_label_js_distance"], d, cfg["warn_label_js_distance"], severity="warning",
+            "drift.label_distribution_train_vs_validation",
+            "train|validation",
+            d <= cfg["warn_label_js_distance"],
+            d,
+            cfg["warn_label_js_distance"],
+            severity="warning",
         )
     if "train" in label_counts and "test" in label_counts:
         d = round(js_distance(label_counts["train"], label_counts["test"]), 4)
         report.add(
-            "drift.label_distribution_train_vs_test", "train|test",
-            d <= cfg["warn_label_js_distance"], d, cfg["warn_label_js_distance"], severity="warning",
+            "drift.label_distribution_train_vs_test",
+            "train|test",
+            d <= cfg["warn_label_js_distance"],
+            d,
+            cfg["warn_label_js_distance"],
+            severity="warning",
         )
     return report
 
@@ -400,9 +461,13 @@ def render_markdown(report: ValidationReport) -> str:
         lines += ["", "## Split summary", "", "| | " + " | ".join(splits) + " |"]
         lines.append("| --- |" + " --- |" * len(splits))
         for key in ["docs", "unique_uids", "spans", "spans_per_doc", "domains", "document_types"]:
-            lines.append(f"| {key} | " + " | ".join(str(report.stats[s][key]) for s in splits) + " |")
+            lines.append(
+                f"| {key} | " + " | ".join(str(report.stats[s][key]) for s in splits) + " |"
+            )
         for key in ["locale", "document_format", "text_chars"]:
-            lines.append(f"| {key} | " + " | ".join(_fmt(report.stats[s][key]) for s in splits) + " |")
+            lines.append(
+                f"| {key} | " + " | ".join(_fmt(report.stats[s][key]) for s in splits) + " |"
+            )
         if report.stage == "raw":
             lines.append(
                 "| span_quality | "
@@ -422,7 +487,9 @@ def render_markdown(report: ValidationReport) -> str:
                 cells.append(f"{n:,} ({100 * n / totals[s]:.1f}%)")
             lines.append(f"| {lbl} | " + " | ".join(cells) + " |")
 
-        examples = {s: report.stats[s].get("examples") for s in splits if report.stats[s].get("examples")}
+        examples = {
+            s: report.stats[s].get("examples") for s in splits if report.stats[s].get("examples")
+        }
         if examples:
             lines += ["", "## Examples of quality issues", ""]
             for s, ex in examples.items():

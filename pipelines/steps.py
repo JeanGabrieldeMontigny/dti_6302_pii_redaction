@@ -44,10 +44,19 @@ def _report_dir(cfg) -> Path:
 DATA_CODE = ("src/data/schema.py", "src/data/preprocess.py", "src/data/split.py")
 
 
+def source_sha256(path: Path) -> str:
+    """SHA-256 of a source file with line endings normalised to LF.
+
+    Git may check text files out with CRLF (Windows) or LF (macOS/Linux); the same commit must
+    give the same ``data_version`` on every platform.
+    """
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
 def data_version(cfg: dict) -> str:
     """Identifier for the processed data: raw file hashes, split settings and data-code hashes."""
     manifest = json.loads((_raw_dir(cfg) / ingest_mod.MANIFEST).read_text())
-    code = {f: ingest_mod.sha256_file(resolve_path(f)) for f in DATA_CODE}
+    code = {f: source_sha256(resolve_path(f)) for f in DATA_CODE}
     key = json.dumps(
         {
             "files": manifest["files"],

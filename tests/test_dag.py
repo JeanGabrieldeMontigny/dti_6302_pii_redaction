@@ -1,11 +1,17 @@
 """DAG integrity: the Airflow DAG parses and wires the pipeline steps in order."""
 
 import importlib.util
+import sys
 
 import pytest
 
 from src.config import PROJECT_ROOT
 
+if sys.platform == "win32":
+    # Airflow does not run on native Windows (it needs fcntl), and a failed import leaves
+    # SQLAlchemy mappers half-configured, which then breaks MLflow in later tests.
+    # CI (Linux) runs it.
+    pytest.skip("Airflow is not supported on native Windows", allow_module_level=True)
 pytest.importorskip("airflow")
 
 DAG_FILE = PROJECT_ROOT / "pipelines" / "dags" / "pii_redaction_pipeline.py"

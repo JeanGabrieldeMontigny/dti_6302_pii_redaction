@@ -62,6 +62,15 @@ def test_pipeline_end_to_end(cfg, tmp_path):
     assert 0.0 < run.data.metrics["validation.detection_recall"] <= 1.0
 
 
+def test_source_hash_ignores_line_endings(tmp_path):
+    lf, crlf = tmp_path / "lf.py", tmp_path / "crlf.py"
+    lf.write_bytes(b"x = 1\ny = 2\n")
+    crlf.write_bytes(b"x = 1\r\ny = 2\r\n")
+    assert steps.source_sha256(lf) == steps.source_sha256(crlf)
+    lf.write_bytes(b"x = 1\ny = 3\n")
+    assert steps.source_sha256(lf) != steps.source_sha256(crlf)
+
+
 def test_pipeline_stops_on_bad_data(cfg):
     raw = Path(cfg["data"]["raw_dir"])
     make_raw_split(10).assign(locale="ca").to_parquet(raw / "train.parquet", index=False)

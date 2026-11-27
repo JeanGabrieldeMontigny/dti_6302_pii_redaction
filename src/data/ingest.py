@@ -51,7 +51,10 @@ def verify_manifest(raw_dir: Path, splits: list[str]) -> dict:
 
 
 def download_raw(repo: str, revision: str, splits: list[str], raw_dir: Path) -> dict:
-    """Fetch each split's parquet file into ``raw_dir`` (skipped if the manifest already matches)."""
+    """Fetch each split's parquet file into ``raw_dir``.
+
+    Skipped when the manifest already matches the pinned revision.
+    """
     from huggingface_hub import hf_hub_download
 
     raw_dir.mkdir(parents=True, exist_ok=True)
