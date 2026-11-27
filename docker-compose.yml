@@ -1,0 +1,30 @@
+# Local services. Start with `docker compose up -d --build airflow` (or `make airflow-docker-up`,
+# or `scripts\run.cmd airflow-docker-up` on Windows).
+#
+#   Airflow UI          http://localhost:8080   (no login: local use only)
+#   MLflow UI (Docker)  http://localhost:5001   (runs made inside the container)
+services:
+  airflow:
+    build:
+      context: .
+      dockerfile: docker/airflow.Dockerfile
+    image: pii-redaction-airflow
+    ports:
+      - "8080:8080"
+      - "5001:5001"
+    volumes:
+      - .:/app                    # repository: code, DAGs, configs and data/ shared with the host
+      - airflow-state:/state      # Airflow DB + logs, container MLflow, models and reports
+    environment:
+      AIRFLOW_HOME: /state/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /app/pipelines/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      # Local demo: every visitor is admin, no password. Never expose this port publicly.
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"
+      PII_CONFIG_OVERRIDES: configs/docker_overrides.yaml
+      MLFLOW_DISABLE_AGENT_HINT: "1"
+      TF_CPP_MIN_LOG_LEVEL: "2"
+      GIT_PYTHON_REFRESH: quiet
+
+volumes:
+  airflow-state:

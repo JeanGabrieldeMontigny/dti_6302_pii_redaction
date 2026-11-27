@@ -1,0 +1,13 @@
+# Keep the build context small: images copy only what they need, and data/models are mounted.
+.git
+.venv
+.airflow
+data
+artifacts
+mlartifacts
+mlflow.db
+mlruns
+notebooks
+**/__pycache__
+.pytest_cache
+.ruff_cache

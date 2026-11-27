@@ -1,0 +1,24 @@
+# Not a standalone config. Deep-merged over every config loaded inside the Docker Airflow service
+# (docker-compose.yml sets PII_CONFIG_OVERRIDES to this file).
+#
+# Runs made in the container go to the `airflow-state` volume (/state), with their own MLflow
+# (UI on http://localhost:5001). This keeps the host's mlflow.db and the committed evidence in
+# reports/ untouched: the host and the container use different file paths (e.g. Windows vs
+# Linux), which a shared SQLite MLflow store cannot handle. Data (data/raw, data/processed) is
+# shared with the host through the repository mount.
+tracking:
+  tracking_uri: sqlite:////state/mlflow/mlflow.db
+  artifact_location: /state/mlflow/mlartifacts
+  experiment_name: pii-redaction-docker
+
+artifacts:
+  dir: /state/artifacts
+
+validation:
+  report_dir: /state/reports/validation
+
+evaluation:
+  report_dir: /state/reports/baseline
+
+train:
+  report_dir: /state/reports/experiments

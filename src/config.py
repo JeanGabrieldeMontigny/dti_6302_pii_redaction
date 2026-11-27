@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -10,15 +11,21 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = PROJECT_ROOT / "configs" / "default.yaml"
 
+# Optional YAML file deep-merged over *every* loaded config. The Docker Airflow service uses it to
+# send MLflow runs, models and reports to its own volume, whichever experiment config is chosen.
+OVERRIDES_ENV = "PII_CONFIG_OVERRIDES"
+
 
 def load_config(path: str | Path | None = None, overrides: dict[str, Any] | None = None) -> dict:
-    """Load a YAML config, optionally deep-merging ``overrides`` on top.
+    """Load a YAML config, then apply ``$PII_CONFIG_OVERRIDES`` and ``overrides`` (in that order).
 
     A config may start with ``extends: <path>`` (relative to its own file) to inherit from another
     config; its own keys are deep-merged over the parent's. Experiment configs use this to state
     only what they change.
     """
     cfg = _load_yaml(resolve_path(path) if path else DEFAULT_CONFIG)
+    if env_file := os.environ.get(OVERRIDES_ENV):
+        _deep_merge(cfg, _load_yaml(resolve_path(env_file)))
     if overrides:
         _deep_merge(cfg, overrides)
     return cfg
