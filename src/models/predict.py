@@ -22,6 +22,28 @@ MODEL_FILE = "model.keras"
 FORMAT_VERSION = 1
 
 
+def find_model_dir(models_root: Path, ref: str | None = None) -> Path:
+    """Resolve a trained model directory.
+
+    ``ref`` may be a path to a model directory, a ``model_version`` (``e2_dilated_cnn-1a2b3c4d``),
+    or a prefix such as an experiment name (``e2`` / ``e2_dilated_cnn``), which picks the most
+    recently trained match. ``None`` picks the most recently trained model overall.
+    """
+    if ref and (Path(ref) / PREPROCESSING_FILE).exists():
+        return Path(ref)
+    candidates = [
+        d
+        for d in models_root.glob("*")
+        if (d / PREPROCESSING_FILE).exists() and (d / MODEL_FILE).exists()
+    ]
+    if ref:
+        candidates = [d for d in candidates if d.name.startswith(ref)]
+    if not candidates:
+        what = f"matching {ref!r}" if ref else "at all"
+        raise FileNotFoundError(f"no trained model {what} in {models_root}; run a train step first")
+    return max(candidates, key=lambda d: (d / MODEL_FILE).stat().st_mtime)
+
+
 def preprocessing_spec(
     vocab: CharVocab, labels: Sequence[str], window: int, stride: int, decode_cfg: dict
 ) -> dict:

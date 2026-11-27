@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from collections.abc import Sequence
+from datetime import UTC
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -70,6 +73,126 @@ def mlflow_epoch_logger():
     return _Logger()
 
 
+def hardware_info() -> str:
+    """``gpu:<name>`` when TensorFlow sees a GPU, else ``cpu`` (recorded on every training run)."""
+    import tensorflow as tf
+
+    gpus = tf.config.list_physical_devices("GPU")
+    if not gpus:
+        return "cpu"
+    name = tf.config.experimental.get_device_details(gpus[0]).get("device_name", "unknown")
+    return f"gpu:{name}"
+
+
+def progress_reporter(path: Path, run_label: str, every_s: float = 15, log_every_s: float = 120):
+    """Keras callback that keeps ``path`` (JSON) up to date with the epoch, step, losses and ETA,
+    and logs a progress line every ``log_every_s`` seconds. Read by ``pipelines.status``."""
+    import time
+    from datetime import datetime, timedelta
+
+    import keras
+
+    class _Progress(keras.callbacks.Callback):
+        def on_train_begin(self, logs=None):
+            self.epoch_seconds: list[float] = []
+            self.last_logs: dict = {}
+            self.epoch = 0
+            self.t_epoch = self.t_write = self.t_log = time.monotonic()
+
+        def on_epoch_begin(self, epoch, logs=None):
+            self.epoch, self.t_epoch = epoch, time.monotonic()
+
+        def on_train_batch_end(self, batch, logs=None):
+            now = time.monotonic()
+            if now - self.t_write >= every_s:
+                self._write(batch + 1, logs, now)
+
+        def on_epoch_end(self, epoch, logs=None):
+            self.epoch_seconds.append(time.monotonic() - self.t_epoch)
+            self.last_logs = {k: round(float(v), 5) for k, v in (logs or {}).items()}
+            self._write(self.params.get("steps") or 0, logs, time.monotonic(), epoch_done=True)
+
+        def on_train_end(self, logs=None):
+            self._write(self.params.get("steps") or 0, logs, time.monotonic(), status="finished")
+
+        def _write(self, step, logs, now, epoch_done=False, status="training"):
+            epochs, steps = self.params.get("epochs") or 0, self.params.get("steps") or 0
+            elapsed = now - self.t_epoch
+            remaining_epochs = epochs - self.epoch - 1
+            eta_epoch = 0.0 if epoch_done else elapsed / max(step, 1) * max(steps - step, 0)
+            per_epoch = (
+                sum(self.epoch_seconds) / len(self.epoch_seconds)
+                if self.epoch_seconds
+                else elapsed + eta_epoch
+            )
+            eta_total = 0.0 if status == "finished" else eta_epoch + remaining_epochs * per_epoch
+            done = (self.epoch + (1 if epoch_done else step / max(steps, 1))) / max(epochs, 1)
+            state = {
+                "run": run_label,
+                "status": status,
+                "epoch": self.epoch + 1,
+                "epochs": epochs,
+                "step": step,
+                "steps": steps,
+                "progress": round(min(done, 1.0), 4),
+                "loss": round(float((logs or {}).get("loss", float("nan"))), 5),
+                "last_epoch": self.last_logs,
+                "epoch_seconds": [round(s) for s in self.epoch_seconds],
+                "eta_epoch_s": round(eta_epoch),
+                "eta_total_s": round(eta_total),
+                # UTC with offset: a container's clock (UTC) and the host's (local) agree.
+                "eta_finish": (datetime.now(UTC) + timedelta(seconds=eta_total)).isoformat(
+                    timespec="seconds"
+                ),
+                "updated": datetime.now(UTC).isoformat(timespec="seconds"),
+            }
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(state, indent=1))
+            tmp.replace(path)  # atomic: a reader never sees a half-written file
+            self.t_write = now
+            if now - self.t_log >= log_every_s or epoch_done:
+                self.t_log = now
+                log.info(
+                    "[%s] epoch %d/%d, step %d/%d (%.0f%% overall), loss %.4f, ETA %s (%s)",
+                    run_label,
+                    state["epoch"],
+                    epochs,
+                    step,
+                    steps,
+                    100 * state["progress"],
+                    state["loss"],
+                    _fmt_duration(eta_total),
+                    (datetime.now() + timedelta(seconds=eta_total)).strftime("%H:%M"),
+                )
+
+    return _Progress()
+
+
+def _fmt_duration(seconds: float) -> str:
+    seconds = int(seconds)
+    h, rem = divmod(seconds, 3600)
+    return f"{h}h{rem // 60:02d}m" if h else f"{rem // 60}m{rem % 60:02d}s"
+
+
+def checkpoint_key(cfg: dict, data_version: str) -> str:
+    """Identifies one training configuration, so an interrupted run resumes only from its own
+    backup: same experiment, settings, seed, data and MLflow store (the backup refers to a run in
+    that store). Output paths and the resume flag don't count.
+    """
+    key = {
+        "data_version": data_version,
+        "tracking_uri": cfg["tracking"]["tracking_uri"],
+        "seed": cfg["seed"],
+        "val_fraction": cfg["data"]["val_fraction"],
+        "features": cfg["features"],
+        "model": cfg["model"],
+        "train": {k: v for k, v in cfg["train"].items() if k not in ("report_dir", "resume")},
+    }
+    digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()[:10]
+    return f"{cfg['model']['name']}-{digest}"
+
+
 def train_model(
     cfg: dict,
     train_df: pd.DataFrame,
@@ -77,7 +200,14 @@ def train_model(
     vocab: CharVocab,
     labels: Sequence[str],
     callbacks: list | None = None,
+    backup_dir: Path | None = None,
 ):
+    """Fit the configured model.
+
+    With ``backup_dir``, the full training state (weights, optimizer, epoch) is saved after every
+    epoch and restored when the same training is started again, so an interrupted run continues
+    from its last completed epoch. The backup is deleted when training completes.
+    """
     import keras
 
     from src.models.keras_tagger import build_model
@@ -101,12 +231,18 @@ def train_model(
         optimizer=keras.optimizers.Adam(tcfg["learning_rate"]),
         loss=keras.losses.SparseCategoricalCrossentropy(),
     )
+    backup = []
+    if backup_dir is not None:
+        # First, so the epoch is saved before any later callback can stop training.
+        # double_checkpoint keeps the previous backup if the process dies while writing.
+        backup = [keras.callbacks.BackupAndRestore(str(backup_dir), double_checkpoint=True)]
     history = model.fit(
         make_dataset(x, y, w, tcfg["batch_size"], shuffle=True, seed=seed),
         validation_data=make_dataset(vx, vy, vw, tcfg["batch_size"], shuffle=False, seed=seed),
         epochs=tcfg["epochs"],
         shuffle=False,  # the tf.data pipeline already shuffles (seeded)
         callbacks=[
+            *backup,
             keras.callbacks.EarlyStopping(
                 monitor="val_loss",
                 patience=tcfg["early_stopping_patience"],

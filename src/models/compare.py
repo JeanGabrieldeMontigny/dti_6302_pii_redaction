@@ -1,0 +1,170 @@
+"""Side-by-side comparison of every evaluated model, from the committed report files.
+
+Reads the per-run summaries (``reports/baseline/*_<split>.json``,
+``reports/experiments/*_<split>.json``) and per-label CSVs, so it works the same whichever MLflow
+store a run was logged to (local, Airflow container, GPU container).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pandas as pd
+
+
+def _load_summaries(dirs: list[Path], split: str) -> list[dict]:
+    rows = []
+    for d in dirs:
+        for f in sorted(d.glob(f"*_{split}.json")):
+            s = json.loads(f.read_text())
+            s["_name"] = f.name[: -len(f"_{split}.json")]
+            s["_dir"] = d
+            rows.append(s)
+    return rows
+
+
+def _evidence(s: dict, data_version: str) -> str:
+    """Whether a run can be cited as evidence: clean commit, current data, not resumed oddly."""
+    problems = []
+    if s.get("git_dirty") != "false":
+        problems.append("uncommitted code")
+    if s.get("data_version") != data_version:
+        problems.append("other data")
+    if s.get("resumed_across_commits") == "true":
+        problems.append("resumed across commits")
+    return "yes" if not problems else "no: " + ", ".join(problems)
+
+
+def _fmt_best(best: dict | None) -> str:
+    if not best:
+        return "-"
+    snap = "on" if best["word_snap"] else "off"
+    return (
+        f"{best['detection_recall']:.3f} / {best['char_precision']:.3f} "
+        f"(t={best['threshold']:g}, snap {snap})"
+    )
+
+
+def build_comparison(
+    baseline_dir: Path, experiments_dir: Path, split: str, min_char_precision: float
+) -> dict:
+    summaries = _load_summaries([baseline_dir, experiments_dir], split)
+    if not summaries:
+        raise FileNotFoundError("no evaluation summaries found; run baseline / train first")
+    # The data version most runs share is the reference; runs on other data are flagged.
+    data_version = pd.Series([s.get("data_version") for s in summaries]).mode()[0]
+
+    rows = []
+    for s in summaries:
+        size = s.get("model_size_bytes")
+        secs = s.get("train_seconds")
+        rows.append(
+            {
+                "model": s["_name"],
+                "model_version": s.get("model_version", "-"),
+                "detection_recall": s["detection_recall"],
+                "char_precision": s["char_precision"],
+                "char_recall": s["char_recall"],
+                "type_macro_f1": s["type_macro_f1"],
+                "ms_per_doc": s.get("ms_per_doc"),
+                "n_params": s.get("n_params"),
+                "size_mb": round(size / 1e6, 2) if size else None,
+                "train_min": round(secs / 60, 1) if secs else None,
+                "epochs": s.get("epochs_run"),
+                "hardware": s.get("hardware", "-"),
+                "best_decode": _fmt_best(s.get("decode_sweep_best")),
+                "git_commit": s.get("git_commit", "-"),
+                "evidence": _evidence(s, data_version),
+            }
+        )
+    table = pd.DataFrame(rows)
+
+    per_label = {}
+    for s in summaries:
+        csv = s["_dir"] / f"{s['_name']}_{split}_per_label.csv"
+        if csv.exists():
+            df = pd.read_csv(csv).set_index("label")
+            per_label[s["_name"]] = df["detection_recall"]
+            per_label.setdefault("_support", df["support"])
+    support = per_label.pop("_support", None)
+    labels = pd.DataFrame(per_label)
+    if support is not None:
+        labels.insert(0, "support", support)
+        labels = labels.sort_values("support", ascending=False)
+
+    experiments_dir.mkdir(parents=True, exist_ok=True)
+    md_path = experiments_dir / "comparison.md"
+    csv_path = experiments_dir / "comparison.csv"
+    table.to_csv(csv_path, index=False)
+    md_path.write_text(_render(table, labels, split, data_version, min_char_precision))
+    return {"markdown": str(md_path), "csv": str(csv_path), "models": len(table)}
+
+
+# Column formats for the Markdown table (anything else: 3 decimals for numbers, text as-is).
+_FORMATS = {
+    "n_params": "{:,.0f}",
+    "epochs": "{:.0f}",
+    "size_mb": "{:.2f}",
+    "train_min": "{:.1f}",
+    "ms_per_doc": "{:.2f}",
+}
+
+
+def _md_table(df: pd.DataFrame) -> list[str]:
+    cols = list(df.columns)
+    lines = ["| " + " | ".join(cols) + " |", "|" + " --- |" * len(cols)]
+    for _, r in df.iterrows():
+        lines.append("| " + " | ".join(_cell(r[c], _FORMATS.get(c)) for c in cols) + " |")
+    return lines
+
+
+def _cell(v, fmt: str | None = None) -> str:
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "-"
+    if isinstance(v, int | float):
+        return (fmt or "{:.3f}").format(v)
+    return str(v)
+
+
+def _render(
+    table: pd.DataFrame, labels: pd.DataFrame, split: str, data_version: str, target: float
+) -> str:
+    lines = [
+        f"# Model comparison ({split})",
+        "",
+        f"Generated by `compare` from the report files. Data version `{data_version}`.",
+        "Detection recall is the primary metric; char precision measures over-redaction.",
+        f"`best_decode` = best recall / precision over decoding settings with precision >= "
+        f"{target:g} (see each model's `*_decode_sweep.png`).",
+        "",
+        "## Overall",
+        "",
+        *_md_table(table),
+        "",
+    ]
+    if not labels.empty:
+        shown = labels.copy()
+        model_cols = [c for c in shown.columns if c != "support"]
+        lines += [
+            "## Detection recall per label",
+            "",
+            "Sorted by support (number of entities). **Bold** = best model for the label.",
+            "",
+            "| label | " + " | ".join(shown.columns) + " |",
+            "|" + " --- |" * (len(shown.columns) + 1),
+        ]
+        for label, r in shown.iterrows():
+            best = r[model_cols].max()
+            cells = []
+            for c in shown.columns:
+                v = r[c]
+                if c == "support":
+                    cells.append(f"{int(v):,}")
+                elif pd.isna(v):
+                    cells.append("-")
+                else:
+                    cells.append(f"**{v:.3f}**" if v == best and best > 0 else f"{v:.3f}")
+            lines.append(f"| {label} | " + " | ".join(cells) + " |")
+        lines.append("")
+    return "\n".join(lines)

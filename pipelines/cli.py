@@ -10,7 +10,7 @@ import argparse
 import json
 import logging
 
-from pipelines.steps import STEPS
+from pipelines.steps import EXTRA_STEPS, STEPS
 from src.config import load_config
 
 
@@ -18,7 +18,12 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument("steps", nargs="+", choices=[*STEPS, "all"])
+    parser.add_argument(
+        "steps",
+        nargs="+",
+        choices=[*STEPS, *EXTRA_STEPS, "all"],
+        help="'all' runs the pipeline steps in order; decode_sweep and compare run on request",
+    )
     parser.add_argument(
         "--config", default=None, help="YAML config (default: configs/default.yaml)"
     )
@@ -31,7 +36,8 @@ def main(argv: list[str] | None = None) -> None:
     steps = list(STEPS) if "all" in args.steps else args.steps
     for name in steps:
         logging.info("=== %s ===", name)
-        print(json.dumps({name: STEPS[name](cfg)}, indent=2, default=str))
+        step = STEPS.get(name) or EXTRA_STEPS[name]
+        print(json.dumps({name: step(cfg)}, indent=2, default=str))
 
 
 if __name__ == "__main__":

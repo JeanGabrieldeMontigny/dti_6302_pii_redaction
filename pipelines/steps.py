@@ -10,12 +10,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shutil
 import time
 from pathlib import Path
 
 import pandas as pd
 
-from src.config import resolve_path
+from src.config import resolve_path, resolve_tracking_uri
 from src.data import ingest as ingest_mod
 from src.data.io import read_split, write_split
 from src.data.preprocess import preprocess as preprocess_df
@@ -219,14 +220,29 @@ def _evaluate_and_log(cfg: dict, model, df: pd.DataFrame, split: str, report_dir
 
 
 def _write_summary(
-    report_dir: Path, name: str, split: str, result: dict, run_id: str, manifest: dict
+    report_dir: Path,
+    name: str,
+    split: str,
+    result: dict,
+    run_id: str,
+    manifest: dict,
+    extra: dict | None = None,
 ) -> dict:
-    """JSON summary next to the Markdown report, with the MLflow run id and lineage tags."""
+    """JSON summary next to the Markdown report, with the MLflow run id and lineage tags.
+
+    ``reports/experiments/compare.md`` is built from these files (``compare`` step).
+    """
     import mlflow
 
     tags = mlflow.get_run(run_id).data.tags
     summary = {k: v for k, v in result.items() if k not in ("per_label", "slices")}
-    summary |= {"run_id": run_id, "data_version": manifest["data_version"], **tags}
+    summary |= {
+        "run_id": run_id,
+        "tracking_uri": mlflow.get_tracking_uri(),
+        "data_version": manifest["data_version"],
+        **(extra or {}),
+        **tags,
+    }
     summary = {k: v for k, v in summary.items() if not k.startswith("mlflow.")}
     (report_dir / f"{name}_{split}.json").write_text(json.dumps(summary, indent=2))
     return summary
@@ -271,13 +287,26 @@ def train(cfg: dict, split: str = "validation") -> dict:
     Output: ``artifacts/models/<model_version>/`` with ``model.keras``, ``preprocessing.json``
     (everything inference needs: vocabulary, labels, windowing, decoding) and ``model_card.json``.
     The same directory is logged to MLflow under ``model/``.
+
+    Pause / resume: the training state is backed up after every epoch in
+    ``artifacts/checkpoints/<checkpoint_key>/``. If the process stops (Ctrl+C, crash, reboot),
+    running the same command again continues from the last completed epoch, in the same MLflow
+    run and with the same ``model_version``. Set ``train.resume: false`` to start over instead.
+    The backup is deleted once the run has completed.
     """
     import mlflow
 
     from src.data.schema import LABELS
     from src.features.vocab import CharVocab
     from src.models.predict import KerasTagger, preprocessing_spec
-    from src.models.train import mlflow_epoch_logger, subset_by_uid, train_model
+    from src.models.train import (
+        checkpoint_key,
+        hardware_info,
+        mlflow_epoch_logger,
+        progress_reporter,
+        subset_by_uid,
+        train_model,
+    )
     from src.tracking import git_info, start_run
 
     manifest = check_processed_current(cfg)
@@ -289,6 +318,14 @@ def train(cfg: dict, split: str = "validation") -> dict:
     spec = preprocessing_spec(vocab, LABELS, feat["window"], feat["stride"], cfg["decode"])
     report_dir = resolve_path(tcfg["report_dir"])
 
+    ckpt_dir = (
+        resolve_path(cfg["artifacts"]["dir"])
+        / "checkpoints"
+        / checkpoint_key(cfg, manifest["data_version"])
+    )
+    resume = _resumable_run(ckpt_dir, enabled=tcfg.get("resume", True))
+    git = git_info()
+
     with start_run(
         cfg,
         run_name=mcfg["name"],
@@ -297,24 +334,54 @@ def train(cfg: dict, split: str = "validation") -> dict:
             "model_family": "keras",
             "eval_split": split,
         },
+        run_id=resume["run_id"] if resume else None,
     ) as run:
         run_id = run.info.run_id
         model_version = f"{mcfg['name']}-{run_id[:8]}"
-        mlflow.set_tag("model_version", model_version)
-        mlflow.log_params({f"model.{k}": v for k, v in mcfg.items()})
-        mlflow.log_params({f"train.{k}": v for k, v in tcfg.items() if k != "report_dir"})
-        mlflow.log_params({f"features.{k}": v for k, v in feat.items()})
-        mlflow.log_params({"train_docs": len(train_df), "train_uids": train_df["uid"].nunique()})
+        if resume:
+            mlflow.set_tags({"resumed": "true", "resumed_at_commit": git["git_commit"]})
+            if resume["git_commit"] != git["git_commit"]:
+                log.warning(
+                    "Resuming a run started at commit %s from commit %s",
+                    resume["git_commit"],
+                    git["git_commit"],
+                )
+                mlflow.set_tag("resumed_across_commits", "true")
+        else:
+            ckpt_dir.mkdir(parents=True, exist_ok=True)
+            mlflow.set_tag("hardware", hardware_info())
+            (ckpt_dir / "run.json").write_text(
+                json.dumps({"run_id": run_id, "git_commit": git["git_commit"]})
+            )
+            mlflow.set_tag("model_version", model_version)
+            mlflow.log_params({f"model.{k}": v for k, v in mcfg.items()})
+            mlflow.log_params({f"train.{k}": v for k, v in tcfg.items() if k != "report_dir"})
+            mlflow.log_params({f"features.{k}": v for k, v in feat.items()})
+            mlflow.log_params(
+                {"train_docs": len(train_df), "train_uids": train_df["uid"].nunique()}
+            )
 
         t0 = time.perf_counter()
         model, history, info = train_model(
-            cfg, train_df, data[split], vocab, LABELS, callbacks=[mlflow_epoch_logger()]
+            cfg,
+            train_df,
+            data[split],
+            vocab,
+            LABELS,
+            callbacks=[
+                mlflow_epoch_logger(),
+                progress_reporter(ckpt_dir / "progress.json", model_version),
+            ],
+            backup_dir=ckpt_dir / "backup",
         )
         train_seconds = time.perf_counter() - t0
-        mlflow.log_params({**info, "epochs_run": len(history["loss"])})
+        # Count epochs from MLflow: Keras' history only covers this process (not resumed epochs).
+        epochs_run = len(mlflow.MlflowClient().get_metric_history(run_id, "epoch.loss"))
+        mlflow.log_params({**info, "epochs_run": epochs_run})
 
         tagger = KerasTagger(model, spec, name=mcfg["name"])
         result = _evaluate_and_log(cfg, tagger, data[split], split, report_dir)
+        sweep_best = _decode_sweep_and_log(cfg, tagger, data[split], split, report_dir)
 
         model_dir = resolve_path(cfg["artifacts"]["dir"]) / "models" / model_version
         tagger.save(model_dir)
@@ -330,20 +397,38 @@ def train(cfg: dict, split: str = "validation") -> dict:
             "model_version": model_version,
             "mlflow_run_id": run_id,
             "data_version": manifest["data_version"],
-            **git_info(),
+            **git,
             "architecture": mcfg,
             "n_params": model.count_params(),
             "model_size_bytes": size_bytes,
             "vocab_sha256": spec["vocab_sha256"],
-            "train": {**tcfg, **info, "epochs_run": len(history["loss"])},
+            "train": {**tcfg, **info, "epochs_run": epochs_run, "resumed": bool(resume)},
             "eval_split": split,
             "metrics": {k: result[k] for k in SCALAR_METRICS},
+            "decode_sweep_best": sweep_best,
         }
         (model_dir / "model_card.json").write_text(json.dumps(card, indent=2, default=str))
         mlflow.log_artifacts(str(model_dir), "model")
         mlflow.log_dict(manifest, "data/manifest.json")
 
-    _write_summary(report_dir, mcfg["name"], split, result, run_id, manifest)
+    # Completed: nothing left to resume. (Keras already removed the weights backup.)
+    shutil.rmtree(ckpt_dir, ignore_errors=True)
+    _write_summary(
+        report_dir,
+        mcfg["name"],
+        split,
+        result,
+        run_id,
+        manifest,
+        extra={
+            "model_version": model_version,
+            "n_params": model.count_params(),
+            "model_size_bytes": size_bytes,
+            "train_seconds": train_seconds,
+            "epochs_run": epochs_run,
+            "decode_sweep_best": sweep_best,
+        },
+    )
     return {
         "run_id": run_id,
         "model_version": model_version,
@@ -351,6 +436,152 @@ def train(cfg: dict, split: str = "validation") -> dict:
         "split": split,
         **_headline(result),
     }
+
+
+def _decode_sweep_and_log(
+    cfg: dict, tagger, df: pd.DataFrame, split: str, report_dir: Path, log_to_mlflow: bool = True
+) -> dict | None:
+    """Score every decoding setting in ``evaluation.decode_sweep`` and log the curve to the active
+    MLflow run. Returns the recommended setting (best recall meeting the precision target)."""
+    import mlflow
+
+    from src.models.sweep import decode_sweep, plot_sweep, recommend
+
+    sw = cfg["evaluation"]["decode_sweep"]
+    table = decode_sweep(
+        tagger, df, sw["thresholds"], sw["word_snap"], cfg["evaluation"]["min_coverage"]
+    )
+    best = recommend(table, sw["min_char_precision"])
+    csv_path = report_dir / f"{tagger.name}_decode_sweep.csv"
+    png_path = report_dir / f"{tagger.name}_decode_sweep.png"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    table.round(4).to_csv(csv_path, index=False)
+    plot_sweep(
+        table,
+        png_path,
+        title=f"{tagger.name}: recall vs precision by decoding setting ({split})",
+        current=(tagger.threshold, tagger.word_snap),
+        recommended=best,
+        min_char_precision=sw["min_char_precision"],
+    )
+    log.info("Decode sweep: %s", best or "no setting meets the precision target")
+    if not log_to_mlflow:
+        return best
+    mlflow.log_artifact(str(csv_path), "eval")
+    mlflow.log_artifact(str(png_path), "eval")
+    if best:
+        mlflow.log_metrics(
+            {
+                f"{split}.sweep_best.detection_recall": best["detection_recall"],
+                f"{split}.sweep_best.char_precision": best["char_precision"],
+                f"{split}.sweep_best.threshold": best["threshold"],
+                f"{split}.sweep_best.word_snap": float(best["word_snap"]),
+            }
+        )
+    return best
+
+
+def decode_sweep(cfg: dict, split: str = "validation") -> dict:
+    """Run the decoding sweep for an already trained model of the configured experiment, and
+    attach the results to its MLflow run and report summary.
+
+    The model is the one behind the experiment's current report (``<name>_<split>.json``), so the
+    sweep always matches the committed evidence; without a report, the newest model is used.
+    """
+    import mlflow
+
+    from src.models.predict import KerasTagger, find_model_dir
+    from src.tracking import git_info, start_run
+
+    check_processed_current(cfg)
+    name = cfg["model"]["name"]
+    models_root = resolve_path(cfg["artifacts"]["dir"]) / "models"
+    report_dir = resolve_path(cfg["train"]["report_dir"])
+    summary_path = report_dir / f"{name}_{split}.json"
+    reported = None
+    if summary_path.exists():
+        run = json.loads(summary_path.read_text())["run_id"]
+        reported = models_root / f"{name}-{run[:8]}"  # model_version = <name>-<run id prefix>
+    if reported is not None and reported.exists():
+        model_dir = reported
+    else:
+        if reported is not None:
+            log.warning("Model %s from the report is not on this machine", reported.name)
+        model_dir = find_model_dir(models_root, name + "-")
+    log.info("Decode sweep for model %s", model_dir.name)
+    card = json.loads((model_dir / "model_card.json").read_text())
+    tagger = KerasTagger.load(model_dir, name=name)
+    df = load_processed(cfg, [split])[split]
+
+    run_id = card["mlflow_run_id"]
+    mlflow.set_tracking_uri(resolve_tracking_uri(cfg["tracking"]["tracking_uri"]))
+    try:
+        mlflow.get_run(run_id)
+        in_store = True
+    except mlflow.exceptions.MlflowException:  # trained against another store (e.g. Docker)
+        log.warning("MLflow run %s is not in this tracking store; writing reports only", run_id)
+        in_store = False
+
+    if in_store:
+        git = git_info()
+        sweep_tags = {
+            "decode_sweep_commit": git["git_commit"],
+            "decode_sweep_dirty": git["git_dirty"],
+        }
+        with start_run(cfg, run_name="", run_id=run_id, tags=sweep_tags):
+            best = _decode_sweep_and_log(cfg, tagger, df, split, report_dir)
+    else:
+        best = _decode_sweep_and_log(cfg, tagger, df, split, report_dir, log_to_mlflow=False)
+
+    card["decode_sweep_best"] = best
+    (model_dir / "model_card.json").write_text(json.dumps(card, indent=2, default=str))
+    if summary_path.exists():
+        summary = json.loads(summary_path.read_text())
+        if summary.get("run_id") == run_id:
+            summary["decode_sweep_best"] = best
+            # Summaries written before these fields existed get them from the model card / run.
+            backfill = {
+                "model_version": card["model_version"],
+                "n_params": card.get("n_params"),
+                "model_size_bytes": card.get("model_size_bytes"),
+                "epochs_run": card.get("train", {}).get("epochs_run"),
+            }
+            if in_store:
+                run = mlflow.get_run(run_id)
+                backfill["train_seconds"] = run.data.metrics.get("train_seconds")
+                backfill["hardware"] = run.data.tags.get("hardware")
+            for key, value in backfill.items():
+                if value is not None:
+                    summary.setdefault(key, value)
+            summary_path.write_text(json.dumps(summary, indent=2))
+    return {"model_version": model_dir.name, "split": split, "best": best}
+
+
+def compare(cfg: dict, split: str = "validation") -> dict:
+    """Build reports/experiments/comparison.{md,csv} from every run's committed summary files."""
+    from src.models.compare import build_comparison
+
+    out = build_comparison(
+        baseline_dir=resolve_path(cfg["evaluation"]["report_dir"]),
+        experiments_dir=resolve_path(cfg["train"]["report_dir"]),
+        split=split,
+        min_char_precision=cfg["evaluation"]["decode_sweep"]["min_char_precision"],
+    )
+    log.info("Comparison written to %s", out["markdown"])
+    return out
+
+
+def _resumable_run(ckpt_dir: Path, enabled: bool) -> dict | None:
+    """The interrupted run to continue (``{"run_id", "git_commit"}``), or None to start fresh."""
+    meta = ckpt_dir / "run.json"
+    if enabled and meta.exists():
+        info = json.loads(meta.read_text())
+        log.info("Resuming interrupted MLflow run %s from %s", info["run_id"], ckpt_dir)
+        return info
+    if ckpt_dir.exists():
+        log.info("Discarding previous training backup %s (train.resume is off)", ckpt_dir)
+        shutil.rmtree(ckpt_dir)
+    return None
 
 
 def _metric_key(value: str) -> str:
@@ -365,4 +596,9 @@ STEPS = {
     "validate_processed": validate_processed,
     "evaluate_baseline": evaluate_baseline,
     "train": train,
+}
+# Steps run on request only (not part of `all`).
+EXTRA_STEPS = {
+    "decode_sweep": decode_sweep,
+    "compare": compare,
 }

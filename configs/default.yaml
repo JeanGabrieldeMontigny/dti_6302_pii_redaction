@@ -33,6 +33,14 @@ evaluation:
   # by predicted spans (of any type). 1.0 = fully redacted.
   min_coverage: 1.0
   slice_columns: [locale, document_format, domain]
+  # Decoding settings scored after every Keras training run (no retraining needed):
+  # recall/precision curve in reports/experiments/<experiment>_decode_sweep.{csv,png}.
+  decode_sweep:
+    thresholds: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    word_snap: [false, true]
+    # Proposed precision target (docs plan, section 3; not yet agreed by the team). The sweep
+    # reports the highest-recall setting that meets it.
+    min_char_precision: 0.85
 
 # --- Keras character tagger (checkpoint 3). Experiment configs in configs/experiments/ extend this
 # file and override only what they change.
@@ -57,6 +65,9 @@ train:
   learning_rate: 0.002
   o_class_weight: 1.0     # loss weight of non-PII characters (< 1 favours recall)
   early_stopping_patience: 2
+  # Back up the training state after every epoch; re-running an interrupted training continues
+  # from its last completed epoch (same MLflow run). false = discard any backup and start over.
+  resume: true
   report_dir: reports/experiments
 
 decode:
