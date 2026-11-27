@@ -67,3 +67,18 @@ def test_slices():
     r = evaluate_spans(golds, preds, slices={"locale": ["us", "intl"]})
     assert r["slices"]["locale"]["us"]["detection_recall"] == 1.0
     assert r["slices"]["locale"]["intl"]["detection_recall"] == 0.0
+
+
+def test_per_label_table_order_is_deterministic():
+    from src.models.evaluate import per_label_table
+
+    per_label = {
+        "ssn": {"support": 5, "detection_recall": 1.0, "type_f1": 1.0},
+        "email": {"support": 5, "detection_recall": 0.5, "type_f1": 1.0},
+        "mac_address": {"support": 5, "detection_recall": 1.0, "type_f1": 1.0},
+        "date_of_birth": {"support": 5, "detection_recall": 1.0, "type_f1": 0.0},
+    }
+    expected = ["date_of_birth", "mac_address", "ssn", "email"]  # recall desc, then name
+    assert per_label_table({"per_label": per_label})["label"].tolist() == expected
+    reordered = dict(reversed(list(per_label.items())))
+    assert per_label_table({"per_label": reordered})["label"].tolist() == expected

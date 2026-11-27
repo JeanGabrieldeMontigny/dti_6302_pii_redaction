@@ -37,8 +37,14 @@ def evaluate_model(
 
 
 def per_label_table(result: dict) -> pd.DataFrame:
+    """Labels by detection recall (best first). Ties are broken by label name, so the order, and
+    therefore the committed report files, are identical on every run and platform."""
     rows = [{"label": k, **v} for k, v in result["per_label"].items()]
-    return pd.DataFrame(rows).sort_values("detection_recall", ascending=False)
+    return (
+        pd.DataFrame(rows)
+        .sort_values(["detection_recall", "label"], ascending=[False, True], kind="stable")
+        .reset_index(drop=True)
+    )
 
 
 def render_markdown(result: dict, model_name: str, split: str) -> str:
