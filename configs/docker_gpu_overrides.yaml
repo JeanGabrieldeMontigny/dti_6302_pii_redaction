@@ -1,0 +1,12 @@
+# Not a standalone config. Deep-merged over every config loaded inside the GPU trainer
+# (docker-compose.yml service `trainer-gpu` sets PII_CONFIG_OVERRIDES to this file).
+#
+# Only MLflow moves: GPU runs are logged to the Docker MLflow store shared with Airflow (UI on
+# http://localhost:5001 while Airflow is up), because a container cannot use the host's SQLite
+# store (different file paths). Models (artifacts/models/), training backups and the evaluation
+# reports (reports/experiments/) go to the repository as usual, so `compare`, `redact` and
+# `status` see GPU runs like any other.
+tracking:
+  tracking_uri: sqlite:////state/mlflow/mlflow.db
+  artifact_location: /state/mlflow/mlartifacts
+  experiment_name: pii-redaction-docker

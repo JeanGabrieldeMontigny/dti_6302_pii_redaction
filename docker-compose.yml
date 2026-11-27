@@ -26,5 +26,29 @@ services:
       TF_CPP_MIN_LOG_LEVEL: "2"
       GIT_PYTHON_REFRESH: quiet
 
+  # GPU training (NVIDIA only). Not started by `docker compose up`; run one training with
+  #   docker compose run --rm trainer-gpu train --config configs/experiments/<name>.yaml
+  # (or `make train-gpu CONFIG=...` / `scripts\run.cmd train-gpu -Config ...`).
+  trainer-gpu:
+    profiles: [gpu]
+    build:
+      context: .
+      dockerfile: docker/gpu.Dockerfile
+    image: pii-redaction-gpu
+    volumes:
+      - .:/app                    # code, configs, data/, artifacts/ and reports/ shared with the host
+      - airflow-state:/state      # Docker MLflow store, shared with Airflow (UI on :5001)
+      - cuda-cache:/cache         # compiled GPU kernels, so the one-time compile isn't repeated
+    environment:
+      PII_CONFIG_OVERRIDES: configs/docker_gpu_overrides.yaml
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 volumes:
   airflow-state:
+  cuda-cache:
