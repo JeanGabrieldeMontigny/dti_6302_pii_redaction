@@ -213,7 +213,7 @@ MLflow.
 │   ├── config.py           # config loading, repo-relative path resolution
 │   ├── tracking.py         # MLflow run helper (lineage tags)
 │   ├── data/               # ingest, schema, preprocess, split, validate
-│   ├── features/           # tokenization, span → label alignment (checkpoint 3)
+│   ├── features/           # char vocabulary, span ↔ BIO tags, windowing
 │   ├── models/             # regex baseline, span metrics, evaluation (+ Keras models)
 │   ├── serving/            # export for in-browser inference, redaction contract
 │   └── monitoring/         # telemetry schema, reports, alert thresholds
@@ -253,7 +253,8 @@ dependencies with `uv add <pkg>` (or `uv add --dev <pkg>`) and commit the update
 | `make airflow-run` | Whole pipeline as an Airflow DAG run (`airflow dags test`, no scheduler) |
 | `make airflow` | Local Airflow UI at <http://localhost:8080> (`airflow standalone`) |
 | `make mlflow` | MLflow UI at <http://localhost:5000> |
-| `make train` | Train the Keras model *(TODO, checkpoint 3)* |
+| `make train CONFIG=configs/experiments/<name>.yaml` | Train + evaluate one Keras tagger, save a versioned model |
+| `make experiments` | Train every config in `configs/experiments/` |
 | `make evaluate` | Evaluate a trained model *(TODO)* |
 | `make serve` | In-browser redaction demo *(TODO)* |
 | `make monitor` | Monitoring report *(TODO)* |
@@ -266,7 +267,8 @@ artifact tracking → browser deployment → monitoring).
 ## Pipeline & orchestration
 
 ```text
-ingest ─▶ validate_raw ─▶ preprocess ─▶ validate_processed ─▶ evaluate_baseline ─▶ (train, checkpoint 3)
+ingest ─▶ validate_raw ─▶ preprocess ─▶ validate_processed ─┬─▶ evaluate_baseline
+                                                            └─▶ train
 ```
 
 Every step is a plain function in `pipelines/steps.py` that reads inputs from disk, writes outputs
@@ -274,8 +276,9 @@ to disk and returns a small JSON summary. The same functions run two ways:
 
 - **Airflow** (`pipelines/dags/pii_redaction_pipeline.py`) – the orchestrated path. Tasks pass
   only summaries through XCom. `ingest` retries 3× with exponential backoff (network); validation
-  tasks never retry, because a failed data check is deterministic and needs a human. The DAG is
-  manually triggered and takes a `config` param.
+  tasks never retry, because a failed data check is deterministic and needs a human; `train`
+  retries once (transient resource failures; training is seeded). The DAG is manually triggered
+  and takes a `config` param (e.g. an experiment config).
 - **CLI** (`uv run python -m pipelines.cli <step…|all>`) – for quick iteration and Docker.
 
 ```bash
@@ -303,7 +306,30 @@ Before evaluating, the pipeline checks that the processed splits were built from
 files, config and data code (`data_version` matches and file hashes match); otherwise it fails and
 asks for `make data`. Evidence runs should be made from a clean commit (`git_dirty=false`).
 
-Keras training runs (checkpoint 3) will log to the same experiment for comparison.
+### Keras character tagger
+
+`make train CONFIG=configs/experiments/<name>.yaml` trains one model, evaluates it on validation
+with exactly the same code and metrics as the regex baseline, and logs it to the same MLflow
+experiment, so every run is comparable.
+
+- **Input:** Unicode code points mapped to ids by a vocabulary fit on the training data only
+  (`src/features/vocab.py`). No tokenizer: the browser can reproduce the input exactly with
+  `Array.from(text)`, which removes the Python/JavaScript offset mismatch risk.
+- **Target:** one BIO tag per character (55 labels → 111 tags). Documents are cut into
+  overlapping windows (`features.window` / `stride`); at inference each character takes the
+  prediction of the window where it is most central (`src/features/encode.py`).
+- **Decoding** (`src/models/decode.py`): a character is redacted when `1 - P(O) ≥ threshold`;
+  spans are trimmed of whitespace and optionally snapped to whole words.
+- **Models** (`src/models/keras_tagger.py`): `cnn_small` (plain conv stack) and `dilated_cnn`
+  (residual dilated convolutions). Only layers that browser runtimes support.
+- **Configs:** `configs/default.yaml` holds the defaults; each file in `configs/experiments/`
+  `extends` it and overrides only what the experiment changes.
+
+Each run writes `artifacts/models/<model_version>/` (git-ignored, also logged to MLflow under
+`model/`): `model.keras`, `preprocessing.json` (vocabulary, label order, window/stride,
+decoding settings: everything inference needs) and `model_card.json` (run id, `data_version`,
+git commit, metrics, size). `model_version` is `<experiment>-<first 8 chars of the run id>`.
+Reports go to `reports/experiments/`.
 
 ## Deployment
 
@@ -323,9 +349,10 @@ on every push and pull request.
 | What | How it is identified |
 | --- | --- |
 | Raw data | Hugging Face commit pinned in config (`data.hf_revision`) + SHA-256 of each file in `data/raw/manifest.json`, re-verified every time raw data is read |
-| Processed data | `data_version` = hash of raw file hashes + split settings + hashes of `src/data/{schema,preprocess,split}.py`; per-file SHA-256 in `data/processed/manifest.json` |
+| Processed data | `data_version` = hash of raw file hashes + split settings + hashes of `src/data/{schema,preprocess,split}.py` (line endings normalised, so Windows and macOS checkouts agree; these files are excluded from auto-formatting); per-file SHA-256 in `data/processed/manifest.json` |
 | Schema / thresholds | `src/data/schema.py` and `configs/default.yaml`, versioned in Git |
-| Experiments | MLflow runs tagged with `data_version`, `git_commit` and `git_dirty`; summaries in `reports/baseline/` |
+| Experiments | MLflow runs tagged with `data_version`, `git_commit` and `git_dirty`; summaries in `reports/baseline/` and `reports/experiments/` |
+| Models | `model_version` = `<experiment>-<run id prefix>`; `artifacts/models/<model_version>/` holds the model, `preprocessing.json` (with `vocab_sha256`) and `model_card.json` |
 | Code / environment | Git + `uv.lock` |
 
 ## Limitations & known issues

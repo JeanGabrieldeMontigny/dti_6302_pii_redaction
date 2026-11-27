@@ -1,0 +1,5 @@
+# E2 - main candidate: residual dilated char CNN on the full training split (wider context).
+extends: ../default.yaml
+
+model:
+  name: e2_dilated_cnn

@@ -34,6 +34,35 @@ evaluation:
   min_coverage: 1.0
   slice_columns: [locale, document_format, domain]
 
+# --- Keras character tagger (checkpoint 3). Experiment configs in configs/experiments/ extend this
+# file and override only what they change.
+features:
+  min_char_freq: 5        # code points seen fewer times in train map to UNK
+  window: 512             # characters per model input window
+  stride: 384             # window step; overlap = window - stride
+
+model:
+  name: dilated_cnn       # MLflow run name and model-version prefix
+  arch: dilated_cnn       # cnn_small | dilated_cnn
+  embed_dim: 64
+  filters: 128
+  kernel_size: 3
+  dilations: [1, 2, 4, 8, 1, 2, 4, 8]
+  dropout: 0.1
+
+train:
+  train_fraction: 1.0     # share of training uids used (subset experiments)
+  epochs: 10
+  batch_size: 64
+  learning_rate: 0.002
+  o_class_weight: 1.0     # loss weight of non-PII characters (< 1 favours recall)
+  early_stopping_patience: 2
+  report_dir: reports/experiments
+
+decode:
+  threshold: 0.5          # redact a char when 1 - P(O) >= threshold
+  word_snap: false        # extend spans to whole words
+
 tracking:
   tracking_uri: sqlite:///mlflow.db
   artifact_location: mlartifacts   # used when the experiment is first created

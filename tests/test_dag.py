@@ -26,9 +26,12 @@ def test_dag_structure():
         dag = module.pii_redaction_pipeline()
     else:
         dag = dags[0]
-    expected = ["ingest", "validate_raw", "preprocess", "validate_processed", "evaluate_baseline"]
-    assert sorted(dag.task_ids) == sorted(expected)
-    for upstream, downstream in zip(expected, expected[1:], strict=False):
+    chain = ["ingest", "validate_raw", "preprocess", "validate_processed"]
+    assert sorted(dag.task_ids) == sorted([*chain, "evaluate_baseline", "train"])
+    for upstream, downstream in zip(chain, chain[1:], strict=False):
         assert downstream in dag.get_task(upstream).downstream_task_ids
+    # Baseline evaluation and training both depend only on validated processed data.
+    assert dag.get_task("validate_processed").downstream_task_ids == {"evaluate_baseline", "train"}
     assert dag.get_task("ingest").retries == 3
     assert dag.get_task("validate_raw").retries == 0
+    assert dag.get_task("train").retries == 1

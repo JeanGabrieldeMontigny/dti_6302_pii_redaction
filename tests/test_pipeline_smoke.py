@@ -62,6 +62,35 @@ def test_pipeline_end_to_end(cfg, tmp_path):
     assert 0.0 < run.data.metrics["validation.detection_recall"] <= 1.0
 
 
+def test_train_step_produces_versioned_model(cfg, tmp_path):
+    """raw -> splits -> train a tiny Keras tagger -> evaluated, logged and reloadable."""
+    from src.models.predict import KerasTagger
+
+    cfg["features"] |= {"min_char_freq": 1, "window": 32, "stride": 24}
+    cfg["model"] |= {"name": "smoke_cnn", "arch": "cnn_small", "filters": 8, "embed_dim": 8}
+    cfg["train"] |= {"epochs": 1, "batch_size": 16, "report_dir": str(tmp_path / "experiments")}
+    cfg["artifacts"] = {"dir": str(tmp_path / "artifacts")}
+    steps.preprocess(cfg)
+    result = steps.train(cfg)
+
+    model_dir = Path(result["model_dir"])
+    assert result["model_version"].startswith("smoke_cnn-")
+    card = json.loads((model_dir / "model_card.json").read_text())
+    assert card["mlflow_run_id"] == result["run_id"]
+    assert (tmp_path / "experiments" / "smoke_cnn_validation.md").exists()
+
+    run = mlflow.MlflowClient(cfg["tracking"]["tracking_uri"]).get_run(result["run_id"])
+    assert run.data.tags["model_version"] == result["model_version"]
+    assert "validation.detection_recall" in run.data.metrics
+
+    # The saved artifact alone is enough to run inference.
+    tagger = KerasTagger.load(model_dir)
+    text = "Hi, I'm Maria. Email me at user1us@example.com or call 201-555-1001. " * 3
+    spans = tagger.predict(text)  # longer than one window
+    assert all(0 <= s["start"] < s["end"] <= len(text) for s in spans)
+    assert tagger.params()["vocab_sha256"] == card["vocab_sha256"]
+
+
 def test_source_hash_ignores_line_endings(tmp_path):
     lf, crlf = tmp_path / "lf.py", tmp_path / "crlf.py"
     lf.write_bytes(b"x = 1\ny = 2\n")

@@ -1,0 +1,15 @@
+# E1 - "small model" baseline from the proposal: a plain 3-layer char CNN trained on 10% of the
+# training personas. Shows how much learning adds over the regex rules at low training cost.
+extends: ../default.yaml
+
+model:
+  name: e1_small_cnn_subset
+  arch: cnn_small
+  embed_dim: 32
+  filters: 64
+  kernel_size: 5
+  n_layers: 3
+
+train:
+  train_fraction: 0.1
+  epochs: 3

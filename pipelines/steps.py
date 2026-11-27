@@ -2,6 +2,7 @@
 small JSON-serialisable summary, so the same functions run from the CLI or as Airflow tasks.
 
     ingest -> validate_raw -> preprocess -> validate_processed -> evaluate_baseline
+                                                            \\-> train
 """
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -168,29 +170,83 @@ def validate_processed(cfg: dict) -> dict:
     }
 
 
-def evaluate_baseline(cfg: dict, split: str = "validation") -> dict:
-    """Evaluate the regex baseline and log it to MLflow (no training needed)."""
+SCALAR_METRICS = (
+    "detection_recall",
+    "char_precision",
+    "char_recall",
+    "type_macro_f1",
+    "type_accuracy",
+    "ms_per_doc",
+)
+
+
+def _evaluate_and_log(cfg: dict, model, df: pd.DataFrame, split: str, report_dir: Path) -> dict:
+    """Evaluate ``model`` on ``df``, write the report files and log everything to the active run.
+
+    Every model (rules or Keras) goes through this function, so all runs are directly comparable.
+    """
     import mlflow
 
     from src.models.evaluate import evaluate_model, per_label_table, render_markdown
-    from src.models.regex_baseline import RegexBaseline
 
-    manifest = check_processed_current(cfg)
-    model = RegexBaseline()
-    df = load_processed(cfg, [split])[split]
     ev = cfg["evaluation"]
     result = evaluate_model(model, df, ev["slice_columns"], ev["min_coverage"])
     report_md = render_markdown(result, model.name, split)
     per_label_csv = per_label_table(result).to_csv(index=False)
 
     # Reviewable evidence in the repo, alongside the MLflow run.
-    report_dir = resolve_path(ev["report_dir"])
     report_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / f"{model.name}_{split}.md").write_text(report_md)
     (report_dir / f"{model.name}_{split}_per_label.csv").write_text(per_label_csv)
-    summary = {k: v for k, v in result.items() if k not in ("per_label", "slices")}
 
+    mlflow.log_params({**model.params(), "min_coverage": ev["min_coverage"], "seed": cfg["seed"]})
+    mlflow.log_params({f"data.{k}": v for k, v in cfg["data"].items() if k != "splits"})
+    mlflow.log_metrics({f"{split}.{k}": result[k] for k in SCALAR_METRICS})
+    mlflow.log_metrics(
+        {f"{split}.recall.{lbl}": v["detection_recall"] for lbl, v in result["per_label"].items()}
+    )
+    for col, groups in result["slices"].items():
+        mlflow.log_metrics(
+            {
+                f"{split}.recall.{col}.{_metric_key(k)}": m["detection_recall"]
+                for k, m in groups.items()
+            }
+        )
+    mlflow.log_dict(result, f"eval/{split}_metrics.json")
+    mlflow.log_text(report_md, f"eval/{split}_report.md")
+    mlflow.log_text(per_label_csv, f"eval/{split}_per_label.csv")
+    return result
+
+
+def _write_summary(
+    report_dir: Path, name: str, split: str, result: dict, run_id: str, manifest: dict
+) -> dict:
+    """JSON summary next to the Markdown report, with the MLflow run id and lineage tags."""
+    import mlflow
+
+    tags = mlflow.get_run(run_id).data.tags
+    summary = {k: v for k, v in result.items() if k not in ("per_label", "slices")}
+    summary |= {"run_id": run_id, "data_version": manifest["data_version"], **tags}
+    summary = {k: v for k, v in summary.items() if not k.startswith("mlflow.")}
+    (report_dir / f"{name}_{split}.json").write_text(json.dumps(summary, indent=2))
+    return summary
+
+
+def _headline(result: dict) -> dict:
+    return {k: round(result[k], 4) for k in ("detection_recall", "char_precision", "type_macro_f1")}
+
+
+def evaluate_baseline(cfg: dict, split: str = "validation") -> dict:
+    """Evaluate the regex baseline and log it to MLflow (no training needed)."""
+    import mlflow
+
+    from src.models.regex_baseline import RegexBaseline
     from src.tracking import start_run
+
+    manifest = check_processed_current(cfg)
+    model = RegexBaseline()
+    df = load_processed(cfg, [split])[split]
+    report_dir = resolve_path(cfg["evaluation"]["report_dir"])
 
     with start_run(
         cfg,
@@ -201,48 +257,99 @@ def evaluate_baseline(cfg: dict, split: str = "validation") -> dict:
             "eval_split": split,
         },
     ) as run:
-        mlflow.log_params(
-            {**model.params(), "min_coverage": ev["min_coverage"], "seed": cfg["seed"]}
-        )
-        mlflow.log_params({f"data.{k}": v for k, v in cfg["data"].items() if k != "splits"})
-        scalar = [
-            "detection_recall",
-            "char_precision",
-            "char_recall",
-            "type_macro_f1",
-            "type_accuracy",
-            "ms_per_doc",
-        ]
-        mlflow.log_metrics({f"{split}.{k}": result[k] for k in scalar})
-        mlflow.log_metrics(
-            {
-                f"{split}.recall.{lbl}": v["detection_recall"]
-                for lbl, v in result["per_label"].items()
-            }
-        )
-        for col, groups in result["slices"].items():
-            mlflow.log_metrics(
-                {
-                    f"{split}.recall.{col}.{_metric_key(k)}": m["detection_recall"]
-                    for k, m in groups.items()
-                }
-            )
-        mlflow.log_dict(result, f"eval/{split}_metrics.json")
-        mlflow.log_text(report_md, f"eval/{split}_report.md")
-        mlflow.log_text(per_label_csv, f"eval/{split}_per_label.csv")
+        result = _evaluate_and_log(cfg, model, df, split, report_dir)
         mlflow.log_dict(manifest, "data/manifest.json")
         run_id = run.info.run_id
 
-    tags = mlflow.get_run(run_id).data.tags
-    summary |= {"run_id": run_id, "data_version": manifest["data_version"], **tags}
-    summary = {k: v for k, v in summary.items() if not k.startswith("mlflow.")}
-    (report_dir / f"{model.name}_{split}.json").write_text(json.dumps(summary, indent=2))
+    _write_summary(report_dir, model.name, split, result, run_id, manifest)
+    return {"run_id": run_id, "model": model.name, "split": split, **_headline(result)}
 
+
+def train(cfg: dict, split: str = "validation") -> dict:
+    """Train the configured Keras tagger, evaluate it on validation and save a versioned model.
+
+    Output: ``artifacts/models/<model_version>/`` with ``model.keras``, ``preprocessing.json``
+    (everything inference needs: vocabulary, labels, windowing, decoding) and ``model_card.json``.
+    The same directory is logged to MLflow under ``model/``.
+    """
+    import mlflow
+
+    from src.data.schema import LABELS
+    from src.features.vocab import CharVocab
+    from src.models.predict import KerasTagger, preprocessing_spec
+    from src.models.train import mlflow_epoch_logger, subset_by_uid, train_model
+    from src.tracking import git_info, start_run
+
+    manifest = check_processed_current(cfg)
+    data = load_processed(cfg, ["train", split])
+    feat, mcfg, tcfg = cfg["features"], cfg["model"], cfg["train"]
+    train_df = subset_by_uid(data["train"], tcfg["train_fraction"], cfg["seed"])
+    # Fit on the training data actually used, so a subset experiment never sees other text.
+    vocab = CharVocab.fit(train_df["text"], feat["min_char_freq"])
+    spec = preprocessing_spec(vocab, LABELS, feat["window"], feat["stride"], cfg["decode"])
+    report_dir = resolve_path(tcfg["report_dir"])
+
+    with start_run(
+        cfg,
+        run_name=mcfg["name"],
+        tags={
+            "data_version": manifest["data_version"],
+            "model_family": "keras",
+            "eval_split": split,
+        },
+    ) as run:
+        run_id = run.info.run_id
+        model_version = f"{mcfg['name']}-{run_id[:8]}"
+        mlflow.set_tag("model_version", model_version)
+        mlflow.log_params({f"model.{k}": v for k, v in mcfg.items()})
+        mlflow.log_params({f"train.{k}": v for k, v in tcfg.items() if k != "report_dir"})
+        mlflow.log_params({f"features.{k}": v for k, v in feat.items()})
+        mlflow.log_params({"train_docs": len(train_df), "train_uids": train_df["uid"].nunique()})
+
+        t0 = time.perf_counter()
+        model, history, info = train_model(
+            cfg, train_df, data[split], vocab, LABELS, callbacks=[mlflow_epoch_logger()]
+        )
+        train_seconds = time.perf_counter() - t0
+        mlflow.log_params({**info, "epochs_run": len(history["loss"])})
+
+        tagger = KerasTagger(model, spec, name=mcfg["name"])
+        result = _evaluate_and_log(cfg, tagger, data[split], split, report_dir)
+
+        model_dir = resolve_path(cfg["artifacts"]["dir"]) / "models" / model_version
+        tagger.save(model_dir)
+        size_bytes = (model_dir / "model.keras").stat().st_size
+        mlflow.log_metrics(
+            {
+                "n_params": model.count_params(),
+                "model_size_bytes": size_bytes,
+                "train_seconds": train_seconds,
+            }
+        )
+        card = {
+            "model_version": model_version,
+            "mlflow_run_id": run_id,
+            "data_version": manifest["data_version"],
+            **git_info(),
+            "architecture": mcfg,
+            "n_params": model.count_params(),
+            "model_size_bytes": size_bytes,
+            "vocab_sha256": spec["vocab_sha256"],
+            "train": {**tcfg, **info, "epochs_run": len(history["loss"])},
+            "eval_split": split,
+            "metrics": {k: result[k] for k in SCALAR_METRICS},
+        }
+        (model_dir / "model_card.json").write_text(json.dumps(card, indent=2, default=str))
+        mlflow.log_artifacts(str(model_dir), "model")
+        mlflow.log_dict(manifest, "data/manifest.json")
+
+    _write_summary(report_dir, mcfg["name"], split, result, run_id, manifest)
     return {
         "run_id": run_id,
-        "model": model.name,
+        "model_version": model_version,
+        "model_dir": str(model_dir),
         "split": split,
-        **{k: round(result[k], 4) for k in ("detection_recall", "char_precision", "type_macro_f1")},
+        **_headline(result),
     }
 
 
@@ -257,4 +364,5 @@ STEPS = {
     "preprocess": preprocess,
     "validate_processed": validate_processed,
     "evaluate_baseline": evaluate_baseline,
+    "train": train,
 }

@@ -9,7 +9,7 @@ AIRFLOW_ENV := AIRFLOW_HOME=$(CURDIR)/.airflow \
 	NO_PROXY='*' OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 DAG_ID := pii_redaction_pipeline
 
-.PHONY: help setup lint format test data validate baseline pipeline airflow airflow-run mlflow train evaluate serve monitor clean
+.PHONY: help setup lint format test data validate baseline pipeline airflow airflow-run mlflow train experiments evaluate serve monitor clean
 
 help:  ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -51,8 +51,12 @@ airflow-run:  ## Run the DAG once in-process via `airflow dags test` (no schedul
 mlflow:  ## Open the MLflow UI on http://localhost:5000
 	uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 
-train:  ## Train the Keras model (TODO: checkpoint 3)
-	@echo "TODO: implement Keras training step" && exit 1
+train:  ## Train + evaluate one Keras tagger (CONFIG=configs/experiments/<name>.yaml)
+	$(RUN) train
+
+EXPERIMENTS ?= $(sort $(wildcard configs/experiments/*.yaml))
+experiments:  ## Train every experiment config in configs/experiments/ (one MLflow run each)
+	@for c in $(EXPERIMENTS); do echo "=== $$c ==="; uv run python -m pipelines.cli --config $$c train || exit 1; done
 
 evaluate:  ## Evaluate a trained model (TODO: checkpoint 3)
 	@echo "TODO: implement evaluation" && exit 1

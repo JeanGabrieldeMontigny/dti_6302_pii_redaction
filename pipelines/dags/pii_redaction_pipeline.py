@@ -3,10 +3,14 @@
 Each task is a thin wrapper around a function in ``pipelines.steps``; data moves between tasks
 through files on disk, and only small summaries go through XCom.
 
-    ingest -> validate_raw -> preprocess -> validate_processed -> evaluate_baseline
+    ingest -> validate_raw -> preprocess -> validate_processed -+-> evaluate_baseline
+                                                                +-> train
+
+The training config is the DAG's ``config`` param, e.g. ``configs/experiments/e2_dilated_cnn.yaml``.
 
 Failure behaviour:
 - ``ingest`` touches the network, so it retries with exponential backoff.
+- ``train`` retries once (transient resource failures); it is seeded, so a retry is equivalent.
 - Validation steps never retry: a failed data check is deterministic and needs a human
   (fix upstream data or update the schema/thresholds), so the run stops there.
 """
@@ -73,7 +77,17 @@ def pii_redaction_pipeline():
 
         return steps.evaluate_baseline(_cfg())
 
-    evaluate_baseline(validate_processed(preprocess(validate_raw(ingest()))))
+    # One retry for transient failures (out of memory, interrupted worker). Training is seeded,
+    # so a retry reproduces the same run; a second failure needs a human.
+    @task(retries=1, retry_delay=timedelta(minutes=1), execution_timeout=timedelta(hours=6))
+    def train(_upstream: dict) -> dict:
+        from pipelines import steps
+
+        return steps.train(_cfg())
+
+    validated = validate_processed(preprocess(validate_raw(ingest())))
+    evaluate_baseline(validated)
+    train(validated)
 
 
 pii_redaction_pipeline()
