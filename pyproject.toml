@@ -19,6 +19,7 @@ dependencies = [
   "pyarrow>=26.0.1",
   "huggingface-hub>=2.4.0",
   "mlflow>=3.18.0",
+  "matplotlib>=3.8",
 ]
 
 [dependency-groups]
@@ -26,8 +27,15 @@ airflow = [
   "apache-airflow>=3.1",
 ]
 dev = [
+  "pre-commit>=4.7.0",
   "pytest>=8.0",
   "ruff>=0.5",
+]
+
+# NVIDIA CUDA/cuDNN libraries for GPU training (Linux only: TensorFlow has no native Windows GPU
+# support). Used by the GPU Docker image (docker/gpu.Dockerfile), never installed by default.
+gpu = [
+  "tensorflow[and-cuda]>=2.16 ; sys_platform == 'linux'",
 ]
 
 [tool.uv]

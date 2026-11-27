@@ -1,0 +1,29 @@
+# Checks that run on `git commit` (install once per clone: `make hooks` / `scripts\run.cmd hooks`).
+# Run on everything manually: `uv run pre-commit run --all-files`.
+repos:
+  # Ruff from the project's locked environment, so hooks and CI use the exact same version.
+  # --force-exclude applies pyproject's excludes even to files passed explicitly (the data-code
+  # files hashed into data_version must never be reformatted).
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types: [python]
+      - id: ruff-check
+        name: ruff check (auto-fix)
+        entry: uv run ruff check --fix --exit-non-zero-on-fix --force-exclude
+        language: system
+        types: [python]
+
+  # Repository hygiene (checks only; they never modify files).
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files   # keep data, models and MLflow runs out of Git
+        args: [--maxkb=1024]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: detect-private-key
