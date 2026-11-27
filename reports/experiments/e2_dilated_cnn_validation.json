@@ -1,0 +1,28 @@
+{
+  "n_docs": 9915,
+  "n_entities": 81770,
+  "detection_recall": 0.9485752721046838,
+  "char_precision": 0.9845007369405859,
+  "char_recall": 0.9698245569199708,
+  "type_macro_f1": 0.9805481349827844,
+  "type_accuracy": 0.9861406562238123,
+  "ms_per_doc": 3.952058093797405,
+  "run_id": "9f3e9df784df43eeb08c41f223eb957a",
+  "data_version": "658e29cded93",
+  "git_commit": "3a9efd3",
+  "git_dirty": "false",
+  "model_family": "keras",
+  "eval_split": "validation",
+  "model_version": "e2_dilated_cnn-9f3e9df7",
+  "decode_sweep_best": {
+    "threshold": 0.1,
+    "word_snap": true,
+    "detection_recall": 0.9811544576250458,
+    "char_precision": 0.9164048559504487
+  },
+  "n_params": 460335,
+  "model_size_bytes": 5675395,
+  "epochs_run": 10,
+  "train_seconds": 7326.210328699999,
+  "hardware": "cpu"
+}

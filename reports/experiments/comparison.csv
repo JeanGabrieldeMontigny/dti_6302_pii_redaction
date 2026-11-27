@@ -1,0 +1,4 @@
+model,model_version,detection_recall,char_precision,char_recall,type_macro_f1,ms_per_doc,n_params,size_mb,train_min,epochs,hardware,best_decode,git_commit,evidence
+regex_baseline,-,0.328910358322123,0.9932526193406729,0.4653138936096807,0.3777646241526624,0.12912895440993305,,,,,-,-,9b3b66c,yes
+e1_small_cnn_subset,e1_small_cnn_subset-faeb83d7,0.5445517916106152,0.9447493755078701,0.8022384006951278,0.5838870769389273,0.5298144730206577,61903.0,0.78,0.5,3.0,cpu,"0.775 / 0.879 (t=0.5, snap on)",bc53870,yes
+e2_dilated_cnn,e2_dilated_cnn-9f3e9df7,0.9485752721046838,0.9845007369405859,0.9698245569199708,0.9805481349827844,3.952058093797405,460335.0,5.68,122.1,10.0,cpu,"0.981 / 0.916 (t=0.1, snap on)",3a9efd3,yes

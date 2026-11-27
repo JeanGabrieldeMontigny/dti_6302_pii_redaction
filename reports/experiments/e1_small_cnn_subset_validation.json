@@ -13,5 +13,16 @@
   "git_dirty": "false",
   "model_family": "keras",
   "eval_split": "validation",
-  "model_version": "e1_small_cnn_subset-faeb83d7"
+  "model_version": "e1_small_cnn_subset-faeb83d7",
+  "decode_sweep_best": {
+    "threshold": 0.5,
+    "word_snap": true,
+    "detection_recall": 0.7754922343157638,
+    "char_precision": 0.8791723473320351
+  },
+  "n_params": 61903,
+  "model_size_bytes": 783538,
+  "epochs_run": 3,
+  "train_seconds": 27.699790600000597,
+  "hardware": "cpu"
 }
