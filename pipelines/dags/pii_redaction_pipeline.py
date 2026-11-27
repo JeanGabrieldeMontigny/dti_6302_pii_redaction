@@ -1,0 +1,79 @@
+"""Airflow DAG for the PII redaction training pipeline.
+
+Each task is a thin wrapper around a function in ``pipelines.steps``; data moves between tasks
+through files on disk, and only small summaries go through XCom.
+
+    ingest -> validate_raw -> preprocess -> validate_processed -> evaluate_baseline
+
+Failure behaviour:
+- ``ingest`` touches the network, so it retries with exponential backoff.
+- Validation steps never retry: a failed data check is deterministic and needs a human
+  (fix upstream data or update the schema/thresholds), so the run stops there.
+"""
+
+from __future__ import annotations
+
+from datetime import timedelta
+
+import pendulum
+from airflow.sdk import Param, dag, get_current_context, task
+
+
+def _cfg() -> dict:
+    from src.config import load_config
+
+    params = get_current_context()["params"]
+    return load_config(params.get("config") or None)
+
+
+@dag(
+    dag_id="pii_redaction_pipeline",
+    schedule=None,  # triggered manually / by CI; no fixed cadence for a static dataset
+    start_date=pendulum.datetime(2026, 11, 1, tz="UTC"),
+    catchup=False,
+    max_active_runs=1,
+    tags=["pii", "training"],
+    default_args={"retries": 0, "execution_timeout": timedelta(hours=2)},
+    params={
+        "config": Param(
+            "configs/default.yaml",
+            type="string",
+            description="Pipeline config, relative to the repository root",
+        )
+    },
+)
+def pii_redaction_pipeline():
+    @task(retries=3, retry_delay=timedelta(seconds=30), retry_exponential_backoff=True)
+    def ingest() -> dict:
+        from pipelines import steps
+
+        return steps.ingest(_cfg())
+
+    @task
+    def validate_raw(_upstream: dict) -> dict:
+        from pipelines import steps
+
+        return steps.validate_raw(_cfg())
+
+    @task
+    def preprocess(_upstream: dict) -> dict:
+        from pipelines import steps
+
+        return steps.preprocess(_cfg())
+
+    @task
+    def validate_processed(_upstream: dict) -> dict:
+        from pipelines import steps
+
+        return steps.validate_processed(_cfg())
+
+    @task
+    def evaluate_baseline(_upstream: dict) -> dict:
+        from pipelines import steps
+
+        return steps.evaluate_baseline(_cfg())
+
+    evaluate_baseline(validate_processed(preprocess(validate_raw(ingest()))))
+
+
+pii_redaction_pipeline()

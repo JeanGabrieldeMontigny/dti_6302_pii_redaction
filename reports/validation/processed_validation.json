@@ -1,0 +1,709 @@
+{
+  "stage": "processed",
+  "passed": true,
+  "n_errors": 0,
+  "n_warnings": 1,
+  "checks": [
+    {
+      "name": "schema.required_columns",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "uid",
+        "domain",
+        "document_type",
+        "document_format",
+        "locale",
+        "text",
+        "spans"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "schema.string_dtypes",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": null,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_nulls",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_blank_strings",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.locale_values",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "intl",
+        "us"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.document_format_values",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "structured",
+        "unstructured"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "stat.text_length_in_range",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": [
+        20,
+        20000
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.records_per_uid",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 2,
+      "threshold": 2,
+      "detail": ""
+    },
+    {
+      "name": "domain.known_labels",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.span_in_bounds",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.spans_sorted_non_overlapping",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "stat.no_duplicate_texts",
+      "split": "train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "schema.required_columns",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "uid",
+        "domain",
+        "document_type",
+        "document_format",
+        "locale",
+        "text",
+        "spans"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "schema.string_dtypes",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": null,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_nulls",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_blank_strings",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.locale_values",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "intl",
+        "us"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.document_format_values",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "structured",
+        "unstructured"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "stat.text_length_in_range",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": [
+        20,
+        20000
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.records_per_uid",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 2,
+      "threshold": 2,
+      "detail": ""
+    },
+    {
+      "name": "domain.known_labels",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.span_in_bounds",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.spans_sorted_non_overlapping",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "stat.no_duplicate_texts",
+      "split": "validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "schema.required_columns",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "uid",
+        "domain",
+        "document_type",
+        "document_format",
+        "locale",
+        "text",
+        "spans"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "schema.string_dtypes",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": null,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_nulls",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "missing.no_blank_strings",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.locale_values",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "intl",
+        "us"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.document_format_values",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": "ok",
+      "threshold": [
+        "structured",
+        "unstructured"
+      ],
+      "detail": ""
+    },
+    {
+      "name": "stat.text_length_in_range",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": [
+        20,
+        20000
+      ],
+      "detail": ""
+    },
+    {
+      "name": "domain.records_per_uid",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 2,
+      "threshold": 2,
+      "detail": ""
+    },
+    {
+      "name": "domain.known_labels",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.span_in_bounds",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "domain.spans_sorted_non_overlapping",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "stat.no_duplicate_texts",
+      "split": "test",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "leakage.uid_overlap",
+      "split": "test|train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "leakage.text_overlap",
+      "split": "test|train",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "leakage.uid_overlap",
+      "split": "test|validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "leakage.text_overlap",
+      "split": "test|validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "leakage.uid_overlap",
+      "split": "train|validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "leakage.text_overlap",
+      "split": "train|validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0,
+      "threshold": 0,
+      "detail": ""
+    },
+    {
+      "name": "stat.validation_fraction",
+      "split": "train|validation",
+      "passed": true,
+      "severity": "error",
+      "observed": 0.0992,
+      "threshold": 0.1,
+      "detail": ""
+    },
+    {
+      "name": "drift.label_distribution_train_vs_validation",
+      "split": "train|validation",
+      "passed": true,
+      "severity": "warning",
+      "observed": 0.0163,
+      "threshold": 0.1,
+      "detail": ""
+    },
+    {
+      "name": "drift.label_distribution_train_vs_test",
+      "split": "train|test",
+      "passed": false,
+      "severity": "warning",
+      "observed": 0.122,
+      "threshold": 0.1,
+      "detail": ""
+    }
+  ],
+  "stats": {
+    "train": {
+      "docs": 90070,
+      "unique_uids": 45041,
+      "spans": 743438,
+      "spans_per_doc": 8.25,
+      "locale": {
+        "us": 45037,
+        "intl": 45033
+      },
+      "document_format": {
+        "unstructured": 46239,
+        "structured": 43831
+      },
+      "domains": 30,
+      "document_types": 1450,
+      "text_chars": {
+        "p0": 32,
+        "p5": 256,
+        "p50": 774,
+        "p95": 2533,
+        "p100": 13260,
+        "mean": 1003.6
+      },
+      "label_counts": {
+        "company_name": 76973,
+        "date": 69507,
+        "first_name": 53412,
+        "email": 44942,
+        "url": 40411,
+        "last_name": 39528,
+        "occupation": 27924,
+        "country": 24931,
+        "phone_number": 22532,
+        "time": 18896,
+        "city": 17369,
+        "state": 17176,
+        "customer_id": 15535,
+        "street_address": 15166,
+        "date_time": 12964,
+        "user_name": 11564,
+        "date_of_birth": 11447,
+        "employee_id": 11015,
+        "biometric_identifier": 10109,
+        "education_level": 9587,
+        "account_number": 9042,
+        "vehicle_identifier": 8334,
+        "credit_debit_card": 8138,
+        "ipv4": 8020,
+        "coordinate": 7621,
+        "password": 7473,
+        "postcode": 7187,
+        "certificate_license_number": 7184,
+        "employment_status": 6937,
+        "fax_number": 6674,
+        "license_plate": 6404,
+        "medical_record_number": 6401,
+        "race_ethnicity": 6396,
+        "bank_routing_number": 6082,
+        "pin": 5966,
+        "language": 5895,
+        "county": 5860,
+        "health_plan_beneficiary_number": 5702,
+        "mac_address": 5556,
+        "api_key": 5489,
+        "swift_bic": 5306,
+        "http_cookie": 5213,
+        "device_identifier": 4751,
+        "ssn": 4430,
+        "ipv6": 4289,
+        "religious_belief": 4242,
+        "blood_type": 4042,
+        "gender": 3855,
+        "age": 3696,
+        "political_view": 3615,
+        "cvv": 3203,
+        "national_id": 2853,
+        "tax_id": 2300,
+        "unique_id": 2152,
+        "sexuality": 2142
+      }
+    },
+    "validation": {
+      "docs": 9915,
+      "unique_uids": 4959,
+      "spans": 81770,
+      "spans_per_doc": 8.25,
+      "locale": {
+        "us": 4958,
+        "intl": 4957
+      },
+      "document_format": {
+        "unstructured": 5121,
+        "structured": 4794
+      },
+      "domains": 30,
+      "document_types": 1337,
+      "text_chars": {
+        "p0": 65,
+        "p5": 248,
+        "p50": 763,
+        "p95": 2553,
+        "p100": 10028,
+        "mean": 1001.3
+      },
+      "label_counts": {
+        "company_name": 8451,
+        "date": 7608,
+        "first_name": 5961,
+        "email": 4982,
+        "last_name": 4413,
+        "url": 4382,
+        "occupation": 3153,
+        "country": 2848,
+        "phone_number": 2471,
+        "time": 2134,
+        "city": 1941,
+        "state": 1881,
+        "customer_id": 1673,
+        "street_address": 1663,
+        "date_time": 1398,
+        "user_name": 1300,
+        "date_of_birth": 1263,
+        "biometric_identifier": 1072,
+        "employee_id": 1047,
+        "education_level": 1032,
+        "vehicle_identifier": 1003,
+        "account_number": 954,
+        "ipv4": 932,
+        "credit_debit_card": 911,
+        "postcode": 842,
+        "coordinate": 817,
+        "password": 812,
+        "certificate_license_number": 736,
+        "race_ethnicity": 733,
+        "license_plate": 729,
+        "employment_status": 716,
+        "medical_record_number": 694,
+        "fax_number": 681,
+        "bank_routing_number": 677,
+        "health_plan_beneficiary_number": 643,
+        "language": 634,
+        "county": 597,
+        "api_key": 597,
+        "pin": 580,
+        "http_cookie": 571,
+        "mac_address": 536,
+        "swift_bic": 513,
+        "ssn": 507,
+        "ipv6": 504,
+        "device_identifier": 502,
+        "religious_belief": 498,
+        "blood_type": 475,
+        "age": 466,
+        "gender": 449,
+        "political_view": 396,
+        "cvv": 351,
+        "national_id": 315,
+        "tax_id": 263,
+        "unique_id": 235,
+        "sexuality": 228
+      }
+    },
+    "test": {
+      "docs": 99990,
+      "unique_uids": 50000,
+      "spans": 850168,
+      "spans_per_doc": 8.5,
+      "locale": {
+        "us": 49997,
+        "intl": 49993
+      },
+      "document_format": {
+        "unstructured": 50577,
+        "structured": 49413
+      },
+      "domains": 29,
+      "document_types": 1466,
+      "text_chars": {
+        "p0": 45,
+        "p5": 250,
+        "p50": 745,
+        "p95": 2431,
+        "p100": 14608,
+        "mean": 958.5
+      },
+      "label_counts": {
+        "first_name": 84030,
+        "date": 73830,
+        "last_name": 59587,
+        "company_name": 54821,
+        "email": 53921,
+        "url": 37844,
+        "occupation": 36872,
+        "time": 24505,
+        "phone_number": 23925,
+        "country": 23467,
+        "customer_id": 20500,
+        "city": 18344,
+        "state": 18306,
+        "date_of_birth": 18077,
+        "street_address": 16877,
+        "account_number": 16690,
+        "user_name": 15798,
+        "date_time": 13220,
+        "credit_debit_card": 12866,
+        "biometric_identifier": 11379,
+        "medical_record_number": 11098,
+        "employment_status": 11018,
+        "health_plan_beneficiary_number": 10558,
+        "education_level": 9374,
+        "race_ethnicity": 9243,
+        "employee_id": 8878,
+        "language": 8651,
+        "county": 8460,
+        "bank_routing_number": 8352,
+        "coordinate": 7658,
+        "gender": 7645,
+        "age": 7166,
+        "password": 6985,
+        "pin": 6456,
+        "fax_number": 6423,
+        "political_view": 6402,
+        "postcode": 6279,
+        "religious_belief": 6253,
+        "ipv4": 6078,
+        "ssn": 6062,
+        "swift_bic": 5557,
+        "blood_type": 5539,
+        "http_cookie": 4891,
+        "cvv": 4843,
+        "api_key": 4667,
+        "vehicle_identifier": 4561,
+        "mac_address": 4250,
+        "license_plate": 4078,
+        "sexuality": 3312,
+        "ipv6": 3139,
+        "certificate_license_number": 3002,
+        "national_id": 2846,
+        "device_identifier": 2507,
+        "unique_id": 1777,
+        "tax_id": 1301
+      }
+    }
+  }
+}

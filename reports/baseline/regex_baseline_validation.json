@@ -1,0 +1,17 @@
+{
+  "n_docs": 9915,
+  "n_entities": 81770,
+  "detection_recall": 0.328910358322123,
+  "char_precision": 0.9932526193406729,
+  "char_recall": 0.4653138936096807,
+  "type_macro_f1": 0.3777646241526624,
+  "type_accuracy": 0.8974530581892545,
+  "ms_per_doc": 0.12912895440993305,
+  "run_id": "5ba6c773ffc0498fa67e70acb9a3988a",
+  "data_version": "658e29cded93",
+  "git_commit": "9b3b66c",
+  "git_dirty": "false",
+  "airflow_dag_run_id": "manual__2026-11-13T21:15:53.349815+00:00",
+  "model_family": "rules",
+  "eval_split": "validation"
+}
