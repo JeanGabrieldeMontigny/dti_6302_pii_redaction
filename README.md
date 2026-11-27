@@ -208,7 +208,11 @@ MLflow.
 ├── .python-version         # Python version pinned for uv
 ├── Makefile                # setup / lint / test / data / baseline / airflow / mlflow
 ├── Dockerfile              # reproducible pipeline environment
+├── docker-compose.yml      # local Airflow (+ MLflow UI) in Docker
+├── docker/                 # Airflow image, entrypoint and run helper
+├── scripts/run.cmd         # Windows task runner (same tasks as the Makefile)
 ├── configs/default.yaml    # paths, dataset revision, thresholds, seeds, tracking
+├── configs/experiments/    # one YAML per experiment, extends default.yaml
 ├── src/
 │   ├── config.py           # config loading, repo-relative path resolution
 │   ├── tracking.py         # MLflow run helper (lineage tags)
@@ -240,6 +244,12 @@ dependencies with `uv add <pkg>` (or `uv add --dev <pkg>`) and commit the update
 
 ## Common commands
 
+Step-by-step instructions, expected results and what to look for in MLflow/Airflow:
+[`docs/HOW_TO_RUN.md`](docs/HOW_TO_RUN.md). On Windows (no `make`), every target below is also
+available as `scripts
+un.cmd <target>` (e.g. `scripts
+un.cmd train -Config <path>`).
+
 | Command | Purpose |
 | --- | --- |
 | `make setup` | `uv sync`: create `.venv` and install locked dependencies (incl. Airflow) |
@@ -253,8 +263,18 @@ dependencies with `uv add <pkg>` (or `uv add --dev <pkg>`) and commit the update
 | `make airflow-run` | Whole pipeline as an Airflow DAG run (`airflow dags test`, no scheduler) |
 | `make airflow` | Local Airflow UI at <http://localhost:8080> (`airflow standalone`) |
 | `make mlflow` | MLflow UI at <http://localhost:5000> |
+| `make airflow-docker-up` | Airflow UI (<http://localhost:8080>) + MLflow for container runs (<http://localhost:5001>) in Docker; works on every OS |
+| `make airflow-docker-run CONFIG=...` | Trigger one DAG run in Docker Airflow and follow it until it finishes |
+| `make airflow-docker-down` | Stop Docker Airflow (state kept in the `airflow-state` volume) |
+| `make docker-build` / `make docker-train CONFIG=...` | Build the pipeline image (records the git commit) / train inside it |
 | `make train CONFIG=configs/experiments/<name>.yaml` | Train + evaluate one Keras tagger, save a versioned model |
 | `make experiments` | Train every config in `configs/experiments/` |
+| `make status` | Progress (epoch, step, ETA) of running or interrupted trainings |
+| `make compare` | `reports/experiments/comparison.md`: every model side by side, overall and per label |
+| `make decode-sweep CONFIG=...` | Recall/precision curve over decoding settings for the latest model of an experiment |
+| `make redact TEXT="..."` | Redact text with a trained model (`MODEL=e2`, `WORD_SNAP=1` optional) |
+| `make train-gpu CONFIG=...` | Train on an NVIDIA GPU in Docker (the GPU route on Windows) |
+| `make hooks` | Install the git pre-commit hooks (ruff, large-file and secret checks) |
 | `make evaluate` | Evaluate a trained model *(TODO)* |
 | `make serve` | In-browser redaction demo *(TODO)* |
 | `make monitor` | Monitoring report *(TODO)* |
@@ -277,7 +297,7 @@ to disk and returns a small JSON summary. The same functions run two ways:
 - **Airflow** (`pipelines/dags/pii_redaction_pipeline.py`) – the orchestrated path. Tasks pass
   only summaries through XCom. `ingest` retries 3× with exponential backoff (network); validation
   tasks never retry, because a failed data check is deterministic and needs a human; `train`
-  retries once (transient resource failures; training is seeded). The DAG is manually triggered
+  retries once (transient resource failures) and resumes from its last completed epoch. The DAG is manually triggered
   and takes a `config` param (e.g. an experiment config).
 - **CLI** (`uv run python -m pipelines.cli <step…|all>`) – for quick iteration and Docker.
 
@@ -285,7 +305,12 @@ to disk and returns a small JSON summary. The same functions run two ways:
 make data && make baseline     # CLI
 make airflow-run               # one DAG run, in-process
 make airflow                   # UI: trigger pii_redaction_pipeline from http://localhost:8080
+make airflow-docker-up         # same, in Docker (any OS, the only option on Windows)
 ```
+
+Airflow cannot run natively on Windows. `docker-compose.yml` runs it in a container with the
+repository mounted; `configs/docker_overrides.yaml` (via `PII_CONFIG_OVERRIDES`) sends container
+MLflow runs, models and reports to a Docker volume so they never mix with local runs.
 
 Local Airflow state (SQLite metadata DB, logs, generated admin password) lives in `.airflow/`
 (git-ignored).
@@ -329,7 +354,15 @@ Each run writes `artifacts/models/<model_version>/` (git-ignored, also logged to
 `model/`): `model.keras`, `preprocessing.json` (vocabulary, label order, window/stride,
 decoding settings: everything inference needs) and `model_card.json` (run id, `data_version`,
 git commit, metrics, size). `model_version` is `<experiment>-<first 8 chars of the run id>`.
-Reports go to `reports/experiments/`.
+Reports go to `reports/experiments/`. After training, a **decoding sweep** scores every
+threshold / word-snap setting on validation without retraining (`*_decode_sweep.png`: the
+recall-precision trade-off), and `make compare` collects all models into
+`reports/experiments/comparison.md`.
+
+**Pause / resume:** the training state is backed up after every epoch
+(`artifacts/checkpoints/`). An interrupted `train` (Ctrl+C, crash, reboot) continues from its last
+completed epoch when the same command is run again, in the same MLflow run (tag `resumed=true`).
+Details and caveats: [`docs/HOW_TO_RUN.md`](docs/HOW_TO_RUN.md#pausing-and-resuming-training).
 
 ## Deployment
 
